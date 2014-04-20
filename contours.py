@@ -1,0 +1,81 @@
+#taken from http://answers.opencv.org/question/6043/segmentation-and-contours/
+import cv2
+import numpy
+
+
+class Contour(object):
+    """Provides a user-friendly object defining a contour in OpenCV"""
+
+    def __init__(self, cnt):
+        self.cnt = cnt
+        self.size = len(cnt)
+
+    @property
+    def area(self):
+        """Contour.area - Area bounded by the contour region"""
+        return cv2.contourArea(self.cnt)
+
+    @property
+    def perimeter(self):
+        """Lorem"""
+        return cv2.arcLength(self.cnt, True)
+
+    @property
+    def approx(self):
+        """Lorem"""
+        return rectify(cv2.approxPolyDP(self.cnt, 0.02 * self.perimeter, True))
+
+    @property
+    def hull(self):
+        """Lorem"""
+        return cv2.convexHull(self.cnt)
+
+    @property
+    def moments(self):
+        """Lorem"""
+        return cv2.moments(self.cnt)
+
+    @property
+    def bounding_box(self):
+        """Lorem"""
+        return cv2.boundingRect(self.cnt)
+
+    @property
+    def centroid(self):
+        if self.moments['m00'] != 0.0:
+            cx = self.moments['m10'] / self.moments['m00']
+            cy = self.moments['m01'] / self.moments['m00']
+            return (cx,cy)
+        else:
+            return "Region has zero area"
+
+    @property
+    def ellipse(self):
+        return cv2.fitEllipse(self.cnt)
+
+    @property
+    def diameter(self):
+        """EquivDiameter: diameter of circle with same area as region"""
+        return numpy.sqrt(4 * self.moments['m00'] / numpy.pi)
+
+    def draw_stuff(self, img):
+        cv2.drawContours(img, [self.cnt], 0, (0,255,0), 4)
+        cv2.drawContours(img, [self.approx], 0, (255,0,0), 2)
+        cv2.drawContours(img, [self.hull], 0, (0,0,255), 2)
+        message = 'green : original contour'
+        cv2.putText(img, message, (20,20), cv2.FONT_HERSHEY_PLAIN, 1.0, (0,255,0))
+        message = 'blue : approximated contours'
+        cv2.putText(img, message, (20,40), cv2.FONT_HERSHEY_PLAIN, 1.0, (0,255,0))
+        message = 'red : convex hull'
+        cv2.putText(img, message,(20,60), cv2.FONT_HERSHEY_PLAIN, 1.0, (0,255,0))
+
+
+def rectify(rect):
+    """Sorts rectangular contour co-ords. CW from BL"""
+    if rect.shape[0] != 4:
+        return rect
+    ind = numpy.argsort(rect[:, 0][:, 0])
+    left, right = rect[ind][:2], rect[ind][2:]
+    bl, tl = left[numpy.argsort(left[:, 0][:, 1])]
+    br, tr = right[numpy.argsort(right[:, 0][:, 1])]
+    return numpy.vstack((bl, tl, tr, br))

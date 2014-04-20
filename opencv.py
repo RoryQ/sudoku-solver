@@ -65,8 +65,34 @@ grid_elements = dict(zip(grid_refs, grid_coordinates))
 
 side = width.astype("i")
 square = np.array(square_coordinates((0, 0), side), np.float32)
-trans = cv2.getPerspectiveTransform(grid_elements["A5"], square)
-warp2 = cv2.warpPerspective(warp, trans, (side, side))
 
-cv2.imwrite('warp2.jpg', warp2)
-# write solution to image
+for i in grid_elements:
+    cnt = Contour(grid_elements[i])
+    halfbox = cnt.halfbox.astype("f")
+    trans = cv2.getPerspectiveTransform(halfbox, square)
+    box = cv2.warpPerspective(warp, trans, (side, side))
+    blur = cv2.GaussianBlur(box, (5, 5), 0)
+    (_, thresh) = cv2.threshold(blur, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE,
+                                   cv2.CHAIN_APPROX_SIMPLE)
+
+    contours = [Contour(ctn) for ctn in contours]
+    # box = cv2.cvtColor(box, cv2.COLOR_GRAY2BGR)
+    # for cnt in contours:
+    #     cnt.draw_stuff(box)
+    #
+    # cv2.imwrite(i + '.tiff', box)
+
+    if len(contours) > 0:
+        print i
+        contours.sort(key=lambda x: x.area, reverse=True)
+        biggest = contours[0]
+        side = np.ceil(biggest.perimeter / 4).astype("i")
+        square = np.array(square_coordinates((0, 0), side), np.float32)
+        _, _, width, height = biggest.bounding_box
+        cnt = biggest.bbox.astype("f")
+        trans = cv2.getPerspectiveTransform(cnt, cnt)
+        warp = cv2.warpPerspective(box, trans, (width, height))
+        cv2.imwrite(i + '.tiff', warp)
+
+    # write solution to image

@@ -16,9 +16,13 @@ contours = [Contour(ctn) for ctn in contours]
 contours.sort(key=lambda x: x.area, reverse=True)
 biggest = contours[0]
 
+def square_coordinates(bottom_left, width):
+    (x, y), w = bottom_left, width
+    return [x, y], [x, y+w], [x+w, y+w], [x+w, y]  # BL TL TR BR
+
 # warp puzzle area into square
 side = np.ceil(biggest.perimeter / 4).astype("i")
-square = np.array([[0, 0], [0, side], [side, side], [side, 0]], np.float32)  # BL TL TR BR
+square = np.array(square_coordinates((0, 0), side), np.float32)
 trans = cv2.getPerspectiveTransform(biggest.approx.astype("f"), square)
 warp = cv2.warpPerspective(imgray, trans, (side, side))
 
@@ -27,10 +31,6 @@ cv2.imwrite('warp.jpg', warp)
 def cross(A, B):
     """Cross product of elements in A and elements in B"""
     return [a + b for a in A for b in B]
-
-def square_coordinates(bottom_left, width):
-    (x, y), w = bottom_left, width
-    return [x, y], [x, y+w], [x+w, y+w], [x+w, y]
 
 """
 Grid elements will be referenced as follows:
@@ -46,12 +46,14 @@ F1 F2 F3| F4 F5 F6| F7 F8 F9
 G1 G2 G3| G4 G5 G6| G7 G8 G9
 H1 H2 H3| H4 H5 H6| H7 H8 H9
 I1 I2 I3| I4 I5 I6| I7 I8 I9
+
+Contours have a bottom left origin, whereas images are top left.
+I1 has a bottom left contour origin of (0,0)
 """
 # Generate 4 co-ordinates for each element
-bl_x = [a*(side/9.0) for a in range(9)]
-bl_y = bl_x[::-1]
-bl_grid = [(x, y) for y in bl_y for x in bl_x]
-width = bl_x[1]
+bl = [a*(side/9.0) for a in range(9)]
+bl_grid = [(x, y) for y in bl for x in bl]
+width = bl[1]
 grid_coordinates = [np.array(square_coordinates(e, width), np.float32) for e in bl_grid]
 
 digits = '123456789'
@@ -60,4 +62,11 @@ cols = digits
 grid_refs = cross(rows, cols)
 grid_elements = dict(zip(grid_refs, grid_coordinates))
 
+
+side = width.astype("i")
+square = np.array(square_coordinates((0, 0), side), np.float32)
+trans = cv2.getPerspectiveTransform(grid_elements["A5"], square)
+warp2 = cv2.warpPerspective(warp, trans, (side, side))
+
+cv2.imwrite('warp2.jpg', warp2)
 # write solution to image

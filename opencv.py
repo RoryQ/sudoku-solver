@@ -4,17 +4,36 @@ from contours import Contour
 
 img = cv2.imread('sudoku.jpg')
 
+pixelk = 15
 # remove background
 imgray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-imgray = cv2.GaussianBlur(imgray, (5, 5), 0)
-thresh = cv2.adaptiveThreshold(imgray, 255, 1, 1, 11, 2)
+gauss = cv2.GaussianBlur(imgray, (pixelk, pixelk), 0)
 
-# detect puzzle area
-contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE,
-                                       cv2.CHAIN_APPROX_SIMPLE)
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (50, 50))
+closed = cv2.morphologyEx(gauss, cv2.MORPH_CLOSE, kernel)
+divide = cv2.divide(gauss.astype("f"), closed.astype("f"))
+norm = divide.copy()
+cv2.normalize(divide, norm, 0, 255, cv2.NORM_MINMAX)
+_, thresh = cv2.threshold(norm.astype("uint8"), 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+contours, _ = cv2.findContours(thresh.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 contours = [Contour(ctn) for ctn in contours]
 contours.sort(key=lambda x: x.area, reverse=True)
-biggest = contours[0]
+for i in range(len(contours)):
+    if len(contours[i].approx) == 4:
+        biggest = contours[i]
+        break
+
+mask = thresh.copy()
+mask.fill(0)
+cv2.drawContours(mask, [biggest.cnt], 0, 255, -1)
+cv2.drawContours(mask, [biggest.cnt], 0, 0, 2)
+bit = cv2.bitwise_and(thresh, mask)
+cv2.imwrite('bit.jpg', bit)
+cv2.imwrite('thresh2.jpg', thresh)
+
+
+
 
 def square_coordinates(bottom_left, width):
     (x, y), w = bottom_left, width
@@ -23,11 +42,12 @@ def square_coordinates(bottom_left, width):
 # warp puzzle area into square
 side = np.ceil(biggest.perimeter / 4).astype("i")
 square = np.array(square_coordinates((0, 0), side), np.float32)
-trans = cv2.getPerspectiveTransform(biggest.approx.astype("f"), square)
-warp = cv2.warpPerspective(imgray, trans, (side, side))
+trans = cv2.getPerspectiveTransform(biggest.bbox.astype("f"), square)
+warp = cv2.warpPerspective(thresh, trans, (side, side))
 
 cv2.imwrite('warp.jpg', warp)
 
+exit()
 def cross(A, B):
     """Cross product of elements in A and elements in B"""
     return [a + b for a in A for b in B]
@@ -81,9 +101,9 @@ for i in grid_elements:
     # for cnt in contours:
     #     cnt.draw_stuff(box)
     #
-    # cv2.imwrite(i + '.tiff', box)
+    cv2.imwrite(i + '.tiff', box)
 
-    if len(contours) > 0:
+    if 1==0 and len(contours) > 0:
         print i
         contours.sort(key=lambda x: x.area, reverse=True)
         biggest = contours[0]

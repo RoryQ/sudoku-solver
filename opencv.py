@@ -1,8 +1,50 @@
 import cv2
 import numpy as np
 from contours import Contour
+from PIL import Image
+from PIL.ExifTags import TAGS
+from sys import exit
 
-img = cv2.imread('sudoku.jpg')
+
+def get_exif_data(fname):
+    ret = {}
+    try:
+        img = Image.open(fname)
+        if hasattr(img, '_getexif'):
+            exifinfo = img._getexif()
+            if exifinfo != None:
+                for tag, value in exifinfo.items():
+                    decoded = TAGS.get(tag, tag)
+                    ret[decoded] = value
+    except IOError:
+        print 'IOERROR' + fname
+    return ret
+
+
+def square_coordinates(bottom_left, width):
+    (x, y), w = bottom_left, width
+    return [x, y], [x, y+w], [x+w, y+w], [x+w, y]  # BL TL TR BR
+
+
+def cross(A, B):
+    """Cross product of elements in A and elements in B"""
+    return [a + b for a in A for b in B]
+fn = 'sudoku3.jpg'
+exif = get_exif_data(fn)
+rot = 0
+if "Orientation" in exif:
+    orientation = exif["Orientation"]
+    if orientation == 8:
+        rot = 1
+    elif orientation == 3:
+        rot = 2
+    elif orientation == 6:
+        rot = 3
+
+img = cv2.imread(fn)
+if rot > 0:
+    img = np.rot90(img.copy(), rot)
+img = img.copy()
 
 pixelk = 15
 # remove background
@@ -24,20 +66,23 @@ for i in range(len(contours)):
         biggest = contours[i]
         break
 
+#for cnt in contours:
+#    cnt.draw_stuff(img)
+biggest.draw_stuff(img)
+cv2.imwrite('biggest.jpg', img)
+
 mask = thresh.copy()
 mask.fill(0)
 cv2.drawContours(mask, [biggest.cnt], 0, 255, -1)
 cv2.drawContours(mask, [biggest.cnt], 0, 0, 2)
 bit = cv2.bitwise_and(thresh, mask)
-cv2.imwrite('bit.jpg', bit)
-cv2.imwrite('thresh2.jpg', thresh)
+
+kernelx = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 10))
+dx = cv2.Sobel(thresh, cv2.CV_16S, 1, 0)
+dx = cv2.convertScaleAbs(dx)
+cv2.normalize(dx, dx, 0, 255, cv2.NORM_MINMAX)
 
 
-
-
-def square_coordinates(bottom_left, width):
-    (x, y), w = bottom_left, width
-    return [x, y], [x, y+w], [x+w, y+w], [x+w, y]  # BL TL TR BR
 
 # warp puzzle area into square
 side = np.ceil(biggest.perimeter / 4).astype("i")
@@ -47,10 +92,7 @@ warp = cv2.warpPerspective(thresh, trans, (side, side))
 
 cv2.imwrite('warp.jpg', warp)
 
-exit()
-def cross(A, B):
-    """Cross product of elements in A and elements in B"""
-    return [a + b for a in A for b in B]
+
 
 """
 Grid elements will be referenced as follows:
@@ -88,7 +130,7 @@ square = np.array(square_coordinates((0, 0), side), np.float32)
 
 for i in grid_elements:
     cnt = Contour(grid_elements[i])
-    halfbox = cnt.halfbox.astype("f")
+    halfbox = cnt.shrinkbox(12).astype("f")
     trans = cv2.getPerspectiveTransform(halfbox, square)
     box = cv2.warpPerspective(warp, trans, (side, side))
     blur = cv2.GaussianBlur(box, (5, 5), 0)
@@ -96,11 +138,11 @@ for i in grid_elements:
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE,
                                    cv2.CHAIN_APPROX_SIMPLE)
 
-    contours = [Contour(ctn) for ctn in contours]
+    # contours = [Contour(ctn) for ctn in contours]
     # box = cv2.cvtColor(box, cv2.COLOR_GRAY2BGR)
     # for cnt in contours:
     #     cnt.draw_stuff(box)
-    #
+
     cv2.imwrite(i + '.tiff', box)
 
     if 1==0 and len(contours) > 0:

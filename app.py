@@ -1,8 +1,11 @@
 #!flask/bin/python
-from flask import Flask, abort, jsonify, make_response, render_template, redirect, url_for
+from flask import Flask, abort, jsonify, make_response, render_template, redirect, url_for, request
 from forms import SodokuGrid
 from sudoku import Sudoku
 from jinja2 import evalcontextfilter, Markup, escape
+from redis import Redis
+from rq import Connection, Queue
+from rq.job import Job
 
 import re
 
@@ -13,6 +16,9 @@ app.config.from_object('config')
 
 su = Sudoku()
 
+redis_conn = Redis()
+q = Queue('default', connection=redis_conn)
+
 @app.route('/', methods=['POST', 'GET'])
 def index():
     form = SodokuGrid(csrf_enabled=False)
@@ -20,12 +26,25 @@ def index():
         puzzle = form.data['Grid']
         if len(puzzle) != 81:
             abort(404)
-        solution = su.solve(puzzle)
-        return redirect(url_for('rendergrid',
-                                puzzle=su.stringify(solution)))
+        from util import solvepuzzle
+        job = q.enqueue(solvepuzzle, puzzle)
+        return render_template('processing.html',
+                                job_id=job.id)
     return render_template('sudoku.html',
                            title="sudoku",
                            form=form)
+
+
+@app.route('/processing/', methods=['POST'])
+def processing():
+    job_id = request.form['job_id']
+    print job_id
+    job = Job(job_id, connection=redis_conn)
+    if job is None:
+        return make_response(jsonify({'job_key': job_id, 'status': 'purged'}))
+    if job.is_finished:
+        return redirect(url_for('rendergrid', puzzle=job.return_value))
+    return make_response(jsonify({'job_key': job.key, 'finished': False}))
 
 @app.route('/rendergrid/<string:puzzle>')
 def rendergrid(puzzle=None):

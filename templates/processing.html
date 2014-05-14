@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processing puzzle</title>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+</head>
+<body>
+    Processing...
+<script type="text/javascript">
+$(document).ready(
+    fn = function(){
+        $.ajax({
+            type: 'POST',
+            url: '/processing/',
+            data:  { job_id: '{{job_id}}' },
+            success: function(data) {
+                //do something
+            },
+            complete: function(){setTimeout(fn, 500);}
+        });
+    }
+    var interval = setTimeout(fn, 500);
+);
+</script>
+</body>
+</html>

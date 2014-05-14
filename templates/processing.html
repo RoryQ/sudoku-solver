@@ -7,20 +7,15 @@
 <body>
     Processing...
 <script type="text/javascript">
-$(document).ready(
-    fn = function(){
-        $.ajax({
-            type: 'POST',
-            url: '/processing/',
-            data:  { job_id: '{{job_id}}' },
-            success: function(data) {
-                //do something
-            },
-            complete: function(){setTimeout(fn, 500);}
-        });
-    }
-    var interval = setTimeout(fn, 500);
-);
+$(function pollServerForSolution() {
+  $.post('/processing/', { job_id : '{{ job_id }}' })
+	.done(function (response) {
+	if(response.status == 'finished')
+	{window.location.href = response.url}
+	else
+	{setTimeout(pollServerForSolution, 3000);}
+	});
+}());
 </script>
 </body>
 </html>

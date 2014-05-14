@@ -38,13 +38,17 @@ def index():
 @app.route('/processing/', methods=['POST'])
 def processing():
     job_id = request.form['job_id']
-    print job_id
+    #print job_id
     job = Job(job_id, connection=redis_conn)
-    if job is None:
-        return make_response(jsonify({'job_key': job_id, 'status': 'purged'}))
+    print job.get_status()
+    if job.get_status() is None:
+        return make_response(jsonify({'job_id': job_id, 'status': 'purged'}))
     if job.is_finished:
-        return redirect(url_for('rendergrid', puzzle=job.return_value))
-    return make_response(jsonify({'job_key': job.key, 'finished': False}))
+        resp = jsonify({'job_id': job_id,
+                        'status': 'finished',
+                        'url': url_for('rendergrid', puzzle=job.return_value)})
+        return make_response(resp)
+    return make_response(jsonify({'job_id': job.key, 'status': 'processing'}))
 
 @app.route('/rendergrid/<string:puzzle>')
 def rendergrid(puzzle=None):

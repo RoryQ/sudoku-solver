@@ -6,6 +6,7 @@ from jinja2 import evalcontextfilter, Markup, escape
 from redis import Redis
 from rq import Connection, Queue
 from rq.job import Job
+from functools import wraps
 
 import re
 
@@ -19,7 +20,19 @@ su = Sudoku()
 redis_conn = Redis()
 q = Queue('default', connection=redis_conn)
 
+def hirefire(queue=None):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            ctx = f(*args, **kwargs)
+            if queue is not None and queue.count > 0:
+                pass
+            return ctx
+        return decorated
+    return decorator
+
 @app.route('/', methods=['POST', 'GET'])
+@hirefire(q)
 def index():
     form = SodokuGrid(csrf_enabled=False)
     if form.validate_on_submit():
@@ -36,11 +49,10 @@ def index():
 
 
 @app.route('/processing/', methods=['POST'])
+@hirefire(q)
 def processing():
     job_id = request.form['job_id']
-    #print job_id
     job = Job(job_id, connection=redis_conn)
-    print job.get_status()
     if job.get_status() is None:
         return make_response(jsonify({'job_id': job_id, 'status': 'purged'}))
     if job.is_finished:
@@ -60,6 +72,7 @@ def rendergrid(puzzle=None):
                            puzzle=display)
 
 @app.route('/api/v1.0/solve/<string:puzzle>', methods=['GET', 'POST'])
+@hirefire(q)
 def solve_puzzle(puzzle):
     if len(puzzle) != 81:
         abort(1404)
@@ -72,6 +85,8 @@ def solve_puzzle(puzzle):
 @app.errorhandler(1404)
 def not_found(error):
     return make_response(jsonify({'error': 'not found'}), 404)
+
+
 
 @app.template_filter()
 @evalcontextfilter

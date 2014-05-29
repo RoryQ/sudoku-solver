@@ -33,7 +33,7 @@ q = Queue('default', connection=redis_conn)
 heroku_key = os.getenv('HEROKU_API_KEY')
 
 cloud = heroku.from_key(heroku_key)
-app = cloud.apps['sudokusolver']
+heroku_app = cloud.apps['sudokusolver']
 
 def hire(queue=None):
     def decorator(f):
@@ -47,7 +47,7 @@ def hire(queue=None):
                     i += 1
                 if i == 0:
                     workers = math.ceil(queue.count/15.0)
-                    app.processes['worker'].scale(workers)
+                    heroku_app.processes['worker'].scale(workers)
             return ctx
         return decorated
     return decorator
@@ -59,7 +59,7 @@ def fire(queue=None):
             ctx = f(*args, **kwargs)
             #fire
             if queue is not None and queue.count == 0:
-                app.processes['worker'].scale(0)
+                heroku_app.processes['worker'].scale(0)
             return ctx
         return decorated
     return decorator

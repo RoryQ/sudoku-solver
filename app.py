@@ -3,7 +3,7 @@ from flask import Flask, abort, jsonify, make_response, render_template, url_for
 from forms import SodokuGrid
 from sudoku import Sudoku
 from jinja2 import evalcontextfilter, Markup, escape
-from redis import Redis
+import redis
 from rq import Queue
 from rq.job import Job
 from functools import wraps
@@ -20,13 +20,8 @@ app.config.from_object('config')
 
 su = Sudoku()
 
-redis_url = os.getenv('REDISTOGO_URL')
-if not redis_url:
-    raise RuntimeError('Set up Redis To Go first')
-
-urlparse.uses_netloc.append('redis')
-url = urlparse.urlparse(redis_url)
-redis_conn = Redis(host=url.hostname, port=url.port, db=0, password=url.password)
+redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
+redis_conn = redis.from_url(redis_url)
 
 q = Queue('default', connection=redis_conn)
 
@@ -43,7 +38,7 @@ def hire(queue=None):
             #hire
             if queue is not None and queue.count > 0:
                 i = 0
-                for a in app.processes['workers']:
+                for a in heroku_app.processes['worker']:
                     i += 1
                 if i == 0:
                     workers = math.ceil(queue.count/15.0)

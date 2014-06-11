@@ -38,8 +38,11 @@ def hire(queue=None):
             #hire
             if queue is not None and queue.count > 0:
                 i = 0
-                for a in heroku_app.processes['worker']:
-                    i += 1
+                try:
+                    for a in heroku_app.processes['worker']:
+                        i += 1
+                except KeyError:
+                    i = 0
                 if i == 0:
                     workers = math.ceil(queue.count/15.0)
                     heroku_app.processes['worker'].scale(workers)
@@ -54,7 +57,10 @@ def fire(queue=None):
             ctx = f(*args, **kwargs)
             #fire
             if queue is not None and queue.count == 0:
-                heroku_app.processes['worker'].scale(0)
+                #heroku_app.processes['worker'].scale(0)
+                cloud._http_resource(method='POST',
+                                     resource=('apps', 'sudokusolver', 'ps', 'scale'),
+                                     data={'type': 'worker', 'qty': 0})
             return ctx
         return decorated
     return decorator

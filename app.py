@@ -45,7 +45,10 @@ def hire(queue=None):
                     i = 0
                 if i == 0:
                     workers = math.ceil(queue.count/15.0)
-                    heroku_app.processes['worker'].scale(workers)
+                    #heroku_app.processes['worker'].scale(workers)
+                    cloud._http_resource(method='POST',
+                                     resource=('apps', 'sudokusolver', 'ps', 'scale'),
+                                     data={'type': 'worker', 'qty': workers})
             return ctx
         return decorated
     return decorator

@@ -11,12 +11,12 @@ import os
 import heroku
 import re
 import math
-import urlparse
 
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
 
 app = Flask(__name__)
 app.config.from_object('config')
+app.debug = os.getenv('DEBUG') == "True"
 
 su = Sudoku()
 

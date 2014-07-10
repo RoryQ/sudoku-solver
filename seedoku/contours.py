@@ -21,6 +21,11 @@ class Contour(object):
         return cv2.arcLength(self.cnt, True)
 
     @property
+    def side(self):
+        """side"""
+        return numpy.ceil(self.perimeter / 4).astype("i")
+
+    @property
     def approx(self):
         """Lorem"""
         return rectify(cv2.approxPolyDP(self.cnt, 0.02 * self.perimeter, True))

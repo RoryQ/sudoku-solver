@@ -5,6 +5,8 @@ from PIL import Image
 from PIL.ExifTags import TAGS
 import argparse
 
+DEBUG = False
+
 def get_exif_data(fname):
     """read image from file name and retrieve exif data"""
     ret = {}
@@ -100,91 +102,86 @@ def warp_to_contour(image, contour):
     trans = cv2.getPerspectiveTransform(contour.bbox.astype("f"), square)
     return cv2.warpPerspective(image, trans, (side, side))
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="OpenCV Sudoku Processing")
-    parser.add_argument('-f', '--file', 
-            help='Image file to process', required=True)
-    args = parser.parse_args()
-    img = get_image(args.file)
-    img_noshading = remove_image_shading(img)
-    _, thresh = cv2.threshold(img_noshading.astype("uint8"), 128, 255, 
-            cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-    
-    contours = get_contours(thresh.copy())
-    biggest = get_biggest_rect(contours)
-
-    # biggest.draw_stuff(img)
-    # cv2.imwrite('biggest.jpg', img)
-
-    mask = thresh.copy()
-    mask.fill(0)
-    cv2.drawContours(mask, [biggest.cnt], 0, 255, -1)
-    cv2.drawContours(mask, [biggest.cnt], 0, 0, 2)
-    bit = cv2.bitwise_and(thresh, mask)
-    
-    # cv2.imwrite('bit.jpg', bit)
-
-    # warp puzzle area into square
-    warp = warp_to_contour(thresh, biggest)
-
-    cv2.imwrite('warp.jpg', warp)
-
-
-
-    """
-    Grid elements will be referenced as follows:
-
-    A1 A2 A3| A4 A5 A6| A7 A8 A9
-    B1 B2 B3| B4 B5 B6| B7 B8 B9
-    C1 C2 C3| C4 C5 C6| C7 C8 C9
-    --------+---------+---------
-    D1 D2 D3| D4 D5 D6| D7 D8 D9
-    E1 E2 E3| E4 E5 E6| E7 E8 E9
-    F1 F2 F3| F4 F5 F6| F7 F8 F9
-    --------+---------+---------
-    G1 G2 G3| G4 G5 G6| G7 G8 G9
-    H1 H2 H3| H4 H5 H6| H7 H8 H9
-    I1 I2 I3| I4 I5 I6| I7 I8 I9
-
-    Contours have a bottom left origin, whereas images are top left.
-    I1 has a bottom left contour origin of (0,0)
-    """
-    # Generate 4 co-ordinates for each element
-    side = biggest.side
-    bl = [a*(side/9.0) for a in range(9)]
+def square_contour_to_coords(contour):
+    bl = [a*(contour.side/9.0) for a in range(9)]
     bl_grid = [(x, y) for y in bl for x in bl]
     width = bl[1]
-    grid_coordinates = [np.array(square_coordinates(e, width), np.float32) for e in bl_grid]
-
+    side = width.astype("i")
+    square = np.array(square_coordinates((0, 0), side), np.float32)
+    grid_elements = [np.array(square_coordinates(e, width), np.float32) for e in bl_grid]
+    return grid_elements, square, side
+    
+def generate_grid_elements(contour):
+    """Generate 4 co-ordinates for each element """
+    grid_coordinates, _, _ = square_contour_to_coords(contour)
     digits = '123456789'
     rows = 'ABCDEFGHI'
     cols = digits
     grid_refs = cross(rows, cols)
-    grid_elements = dict(zip(grid_refs, grid_coordinates))
+    return dict(zip(grid_refs, grid_coordinates))
 
+def get_args():
+    """get args or display args if missing"""
+    parser = argparse.ArgumentParser(description="OpenCV Sudoku Processing")
+    parser.add_argument('-f', '--file', help='Image file to process',
+            required=True)
+    parser.add_argument('-d', '--debug', help='Output debug images',
+            action='store_true')
+    return parser.parse_args()
 
-    side = width.astype("i")
-    square = np.array(square_coordinates((0, 0), side), np.float32)
+def thresh_img(img):
+    img_noshading = remove_image_shading(img)
+    if DEBUG:
+        cv2.imwrite('no_shading.jpg', img_noshading)
+    _, thresh = cv2.threshold(img_noshading.astype("uint8"), 128, 255, 
+            cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+    return thresh
 
-    for i in grid_elements:
-        cnt = Contour(grid_elements[i])
+def main():
+    args = get_args()
+    global DEBUG
+    DEBUG = args.debug
+    fn = args.file.split(".")[0]
+    img = get_image(args.file)
+    thresh = thresh_img(img)
+    contours = get_contours(thresh.copy())
+    biggest = get_biggest_rect(contours)
+
+    warp = warp_to_contour(thresh, biggest)
+    grid_coordinates, square, side = square_contour_to_coords(biggest)
+    grid_elements = generate_grid_elements(biggest)
+
+    if DEBUG:
+        allimg = img.copy()
+        for c in contours:
+            c.draw_stuff(allimg)
+        biggest.draw_stuff(img)
+        cv2.imwrite('all.jpg', allimg)
+        cv2.imwrite('biggest.jpg', img)
+        cv2.imwrite('thresh.jpg', thresh)
+        cv2.imwrite('warp.jpg', warp)
+
+    for elem in grid_elements:
+        cnt = Contour(grid_elements[elem])
         halfbox = cnt.shrinkbox(12).astype("f")
         trans = cv2.getPerspectiveTransform(halfbox, square)
         box = cv2.warpPerspective(warp, trans, (side, side))
         blur = cv2.GaussianBlur(box, (5, 5), 0)
-        (_, thresh) = cv2.threshold(blur, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        (_, thresh) = cv2.threshold(blur, 128, 255, 
+                cv2.THRESH_BINARY | cv2.THRESH_OTSU)
         contours, _ = cv2.findContours(thresh, cv2.RETR_TREE,
                                        cv2.CHAIN_APPROX_SIMPLE)
 
         contours = [Contour(ctn) for ctn in contours]
         box = cv2.cvtColor(box, cv2.COLOR_GRAY2BGR)
+        """
         for cnt in contours:
             cnt.draw_stuff(box)
+        """
 
-        #cv2.imwrite('g' + i + '.tiff', box)
+        #cv2.imwrite(fn + " - " + elem + '.tiff', box)
 
         if 1 == 0 and len(contours) > 0:
-            print i
             contours.sort(key=lambda x: x.area, reverse=True)
             biggest = contours[0]
             side = np.ceil(biggest.perimeter / 4).astype("i")
@@ -193,6 +190,8 @@ if __name__ == '__main__':
             cnt = biggest.bbox.astype("f")
             trans = cv2.getPerspectiveTransform(cnt, cnt)
             warp = cv2.warpPerspective(box, trans, (width, height))
-            cv2.imwrite('g' + i + '.tiff', warp)
+            cv2.imwrite('g' + elem + '.tiff', warp)
 
-        # write solution to image
+if __name__ == '__main__':
+    main()
+

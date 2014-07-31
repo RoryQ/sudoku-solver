@@ -47,8 +47,8 @@ def hire(queue=None):
                     workers = int(math.ceil(queue.count/15.0))
                     #heroku_app.processes['worker'].scale(workers)
                     cloud._http_resource(method='POST',
-                                     resource=('apps', 'sudokusolver', 'ps', 'scale'),
-                                     data={'type': 'worker', 'qty': workers})
+                                         resource=('apps', 'sudokusolver', 'ps', 'scale'),
+                                         data={'type': 'worker', 'qty': workers})
             return ctx
         return decorated
     return decorator
@@ -78,11 +78,8 @@ def index():
             abort(404)
         from util import solvepuzzle
         job = q.enqueue(solvepuzzle, puzzle)
-        return render_template('processing.html',
-                                job_id=job.id)
-    return render_template('sudoku.html',
-                           title="sudoku",
-                           form=form)
+        return render_template('processing.html', job_id=job.id)
+    return render_template('sudoku.html', title="sudoku", form=form)
 
 
 @app.route('/processing/', methods=['POST'])

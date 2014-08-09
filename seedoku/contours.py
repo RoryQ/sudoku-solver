@@ -52,8 +52,11 @@ class Contour(object):
 
 
     def shrinkbox(self, percent):
+        assert 0 <= percent <= 100
         side = self.perimeter / 4
-        w = side - numpy.sqrt(self.area - self.area*(percent/100.))
+        smaller_area = self.area / percent
+        smaller_side = numpy.sqrt(smaller_area)
+        w = smaller_side / 2 
         x, y = self.approx[0]
         return numpy.array(rectangular_coordinates((x+(w/2), y+(w/2)), side-w, side-w), dtype=numpy.int32)
 

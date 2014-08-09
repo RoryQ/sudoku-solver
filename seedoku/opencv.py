@@ -4,6 +4,7 @@ from contours import Contour
 from PIL import Image
 from PIL.ExifTags import TAGS
 import argparse
+import pymorph
 
 DEBUG = False
 
@@ -163,34 +164,19 @@ def main():
 
     for elem in grid_elements:
         cnt = Contour(grid_elements[elem])
-        halfbox = cnt.shrinkbox(12).astype("f")
+        halfbox = cnt.shrinkbox(100).astype("f")
         trans = cv2.getPerspectiveTransform(halfbox, square)
         box = cv2.warpPerspective(warp, trans, (side, side))
-        blur = cv2.GaussianBlur(box, (5, 5), 0)
-        (_, thresh) = cv2.threshold(blur, 128, 255, 
-                cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE,
-                                       cv2.CHAIN_APPROX_SIMPLE)
+        binary = pymorph.binary(box)
+        box = binary.astype(int) * 255
+        box = pymorph.edgeoff(box)
+        #pdb.set_trace()
+        if DEBUG:
+            box = cv2.cvtColor(box, cv2.COLOR_GRAY2BGR)
+            for cnt in contours:
+                cnt.draw_stuff(box)
 
-        contours = [Contour(ctn) for ctn in contours]
-        box = cv2.cvtColor(box, cv2.COLOR_GRAY2BGR)
-        """
-        for cnt in contours:
-            cnt.draw_stuff(box)
-        """
-
-        #cv2.imwrite(fn + " - " + elem + '.tiff', box)
-
-        if 1 == 0 and len(contours) > 0:
-            contours.sort(key=lambda x: x.area, reverse=True)
-            biggest = contours[0]
-            side = np.ceil(biggest.perimeter / 4).astype("i")
-            square = np.array(square_coordinates((0, 0), side), np.float32)
-            _, _, width, height = biggest.bounding_box
-            cnt = biggest.bbox.astype("f")
-            trans = cv2.getPerspectiveTransform(cnt, cnt)
-            warp = cv2.warpPerspective(box, trans, (width, height))
-            cv2.imwrite('g' + elem + '.tiff', warp)
+        cv2.imwrite(fn + " - " + elem + '.jpg', box)
 
 if __name__ == '__main__':
     main()

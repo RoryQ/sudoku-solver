@@ -4,7 +4,10 @@ from contours import Contour
 from PIL import Image
 from PIL.ExifTags import TAGS
 import argparse
-import pymorph
+import pymorph as pm
+import mahotas as mh
+from skimage import morphology as mrp
+import tinyocr, cPickle
 
 DEBUG = False
 
@@ -139,6 +142,12 @@ def thresh_img(img):
     return thresh
 
 def main():
+    print "loading ocrdb"
+    ocr = tinyocr.OCRManager('ocrdb')
+    print "computing features"
+    ocr.compute_features()
+    print "training ocr"
+    ocr.train_learner()
     args = get_args()
     global DEBUG
     DEBUG = args.debug
@@ -157,26 +166,31 @@ def main():
         for c in contours:
             c.draw_stuff(allimg)
         biggest.draw_stuff(img)
-        cv2.imwrite('all.jpg', allimg)
-        cv2.imwrite('biggest.jpg', img)
-        cv2.imwrite('thresh.jpg', thresh)
-        cv2.imwrite('warp.jpg', warp)
+        cv2.imwrite('all.png', allimg)
+        cv2.imwrite('biggest.png', img)
+        cv2.imwrite('thresh.png', thresh)
+        cv2.imwrite('warp.png', warp)
 
     for elem in grid_elements:
         cnt = Contour(grid_elements[elem])
         halfbox = cnt.shrinkbox(100).astype("f")
         trans = cv2.getPerspectiveTransform(halfbox, square)
         box = cv2.warpPerspective(warp, trans, (side, side))
-        binary = pymorph.binary(box)
+        _, thresh = cv2.threshold(box, 127, 255, 0)
+        binary = pm.binary(thresh)
         box = binary.astype(int) * 255
-        box = pymorph.edgeoff(box)
-        #pdb.set_trace()
-        if DEBUG:
-            box = cv2.cvtColor(box, cv2.COLOR_GRAY2BGR)
-            for cnt in contours:
-                cnt.draw_stuff(box)
+        box = pm.edgeoff(box)
+        box = mh.croptobbox(box)
+        #if box.any() == False:
+        if reduce(lambda x, y: x*y, box.shape) < 500:
+            print "%s\t%s blank" % (fn, elem)
+            continue
+        cv2.imwrite(fn + " - " + elem + '.png', box)
+        #with open('box.pkl', 'wb') as output:
+        #    cPickle.dump(box, output, -1)
+        print "%s\t%s\t%s" % (fn, elem, 
+                ocr.test(pm.binary(box).astype("float32")))
 
-        cv2.imwrite(fn + " - " + elem + '.jpg', box)
 
 if __name__ == '__main__':
     main()

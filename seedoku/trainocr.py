@@ -1,48 +1,39 @@
-import tinyocr, glob, timeit, sys, os, cPickle
+import mytinyocr, gzip, numpy, cPickle, timeit, shutil
 
-# open std out in unbuffered mode for print statements
-#sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+f = gzip.open('mnist.pkl.gz')
+t, v, tt = cPickle.load(f)
+f.close()
 
-print "===opening ocr db==="
+def reshapelist(l):
+    return numpy.array([a.reshape((28, 28)) for a in l])
+    
+def fixset(l):
+    return (reshapelist(l[0]), l[1])
+
+def i2c_list(l):
+    return numpy.array([str(a) for a in l])
+    
+train_set = fixset(t)
+valid_set = fixset(v)
+test_set = fixset(tt)
+
+ocrdbname = 'ocrdb'
+
+print "adding images to database"
 start = timeit.default_timer()
-ocr = tinyocr.OCRManager('ocrdb')
+ocr = mytinyocr.OCRManager(ocrdbname)
+ocr.add_many(train_set[0], numpy.array([str(a) for a in train_set[1]]))
 stop = timeit.default_timer()
 print stop - start
 
-print "===reading training data==="
-start = timeit.default_timer()
-for i in xrange(1, 10):
-    path = "data/%i/*.png" % i
-    for f in glob.glob(path):
-        ocr.add(f, str(i))
-stop = timeit.default_timer()
-print stop - start
-
-print "===computing features==="
+print "computing features"
 start = timeit.default_timer()
 ocr.compute_features()
 stop = timeit.default_timer()
 print stop - start
 
-print "===training learner==="
+print "training learner"
 start = timeit.default_timer()
 ocr.train_learner()
 stop = timeit.default_timer()
 print stop - start
-
-print "===testing ocr==="
-for i in xrange(1, 10):
-    path = "data/%i/*.png" % i
-    for f in glob.glob(path):
-        if ocr.test(f)[0] != str(i):
-            print "%s expected: %i\tfound: %s" % (f, i, ocr.test(f)[0])
-
-print "===pickling ocr object==="
-start = timeit.default_timer()
-with open('ocr.pkl', 'wb') as output:
-    cPickle.dump(ocr, output, cPickle.HIGHEST_PROTOCOL)
-stop = timeit.default_timer()
-print stop - start
-
-print "complete."
-

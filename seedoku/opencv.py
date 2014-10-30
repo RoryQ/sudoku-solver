@@ -6,8 +6,9 @@ from PIL.ExifTags import TAGS
 import argparse
 import pymorph as pm
 import mahotas as mh
+import timeit
 from skimage import morphology as mrp
-import tinyocr, cPickle
+import mytinyocr
 
 DEBUG = False
 
@@ -141,16 +142,34 @@ def thresh_img(img):
             cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
     return thresh
 
-def main():
+def load_ocr():
     print "loading ocrdb"
-    ocr = tinyocr.OCRManager('ocrdb')
-    print "computing features"
-    ocr.compute_features()
-    print "training ocr"
-    ocr.train_learner()
+    ocr = mytinyocr.OCRManager('ocrdb')
+    ocr.set_defaults(feature_alg=mytinyocr.feature.resize.Resize(),
+            learner_alg=ocr.db.get_model('SVM').values()[0])
+    return ocr
+
+def MNIST_preprocess(img):
+    # get ratio to scale image down to 20x20
+    ratio = min(20./img.shape[0], 20./img.shape[1])
+    scaleshape = (img.shape[0] * ratio, img.shape[1] * ratio)
+    norm = mh.resize.resize_to(img, scaleshape)
+
+    # position center of mass of image in a 28x28 field
+    dest = np.zeros((28, 28))
+    COM = mh.center_of_mass(norm)
+    (x, y) = (13.5, 13.5) - COM
+    (x, y) = (int(round(x)), int(round(y)))
+    dest[x:x + norm.shape[0], y:y + norm.shape[1]] = norm
+    return dest
+
+def main():
     args = get_args()
     global DEBUG
     DEBUG = args.debug
+    if DEBUG:
+        start = timeit.default_timer()
+    ocr = load_ocr()
     fn = args.file.split(".")[0]
     img = get_image(args.file)
     thresh = thresh_img(img)
@@ -186,11 +205,12 @@ def main():
             print "%s\t%s blank" % (fn, elem)
             continue
         cv2.imwrite(fn + " - " + elem + '.png', box)
-        #with open('box.pkl', 'wb') as output:
-        #    cPickle.dump(box, output, -1)
         print "%s\t%s\t%s" % (fn, elem, 
-                ocr.test(pm.binary(box).astype("float32")))
+                ocr.test(MNIST_preprocess(pm.binary(box).astype("float32"))))
 
+    if DEBUG:
+        stop = timeit.default_timer()
+        print (stop - start)
 
 if __name__ == '__main__':
     main()

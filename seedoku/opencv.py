@@ -6,7 +6,7 @@ from PIL.ExifTags import TAGS
 import argparse
 import pymorph as pm
 import mahotas as mh
-import timeit
+import timeit, gzip, cStringIO, os, cPickle
 from skimage import morphology as mrp
 import mytinyocr
 
@@ -143,11 +143,26 @@ def thresh_img(img):
     return thresh
 
 def load_ocr():
-    print "loading ocrdb"
+    if DEBUG:
+        print "loading ocrdb"
+    svm = fast_unpickle_gzip('SVM.p.gz')
+    svm._update_rq = False
     ocr = mytinyocr.OCRManager('ocrdb')
     ocr.set_defaults(feature_alg=mytinyocr.feature.resize.Resize(),
-            learner_alg=ocr.db.get_model('SVM').values()[0])
+            learner_alg = svm)
     return ocr
+
+
+def fast_unpickle_gzip(filepath):
+    load_pkl = gzip.open(filepath, 'rb')
+    memfile = cStringIO.StringIO()
+    memfile.write(load_pkl.read())
+    load_pkl.close()
+    memfile.seek(0, os.SEEK_SET)
+    obj = cPickle.load(memfile)
+    memfile.close()
+    return obj
+
 
 def MNIST_preprocess(img):
     # get ratio to scale image down to 20x20

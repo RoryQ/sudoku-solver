@@ -5,3 +5,5 @@ tags
 .idea
 *.py~
 *.pyc
+ocrdb
+mnist.pkl.gz

@@ -1,18 +1,24 @@
 import cv2
 import numpy as np
 from contours import Contour
-from PIL import Image
-from PIL.ExifTags import TAGS
 import pymorph as pm
 import mahotas as mh
-import gzip
-import cStringIO
-import os
-import cPickle
-from skimage import morphology as mrp
 from mytinyocr.feature.resize import Resize
 
-class OCRManager(object):
+class Seedoku(object):
+    """
+    Sudoku puzzle detection class.
+    Uses computer vision techniques to detect and isolate a sudoku puzzle
+    grid in an image, which then extracts the puzzle elements to be fed
+    into an OCR.
+
+    Seedoku(ocr_alg) -> returns new Seedoku object that uses the supplied
+    ocr algorithm to predict puzzle element digit values. Uses Resize
+    from tinyocr.feature.resize as the default feature algorithm
+
+    Seedoku(ocr_alg, feature_alg) -> same as above, but allows a custom 
+    feature detection algorithm
+    """
 
     def __init__(self, ocr_alg, feature_alg=None):
         if feature_alg is None:

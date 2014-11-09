@@ -20,44 +20,81 @@ class OCRManager(object):
         self.feature_alg = feature_alg
         self.ocr_alg = ocr_alg
 
-    def Image_to_puzzle(self, img):
+
+    def image_to_puzzle(self, img):
+        """
+        Applys OCR to image and returns a dictionary predicted
+        puzzle grid elements.
+
+        Parameters
+        ----------
+        img : ndarray
+            Any integer image type
+
+        Returns
+        -------
+        dict(key, value) : string, string
+            key is the grid_id where grid rows are letters A-I
+            and columns are numbers 1-9. e.g.
+
+            A1 A2 A3 | A4 A5 A6 | A7 A8 A9
+            B1 B2 B4 | B4 B5 B6 | B7 B8 B9
+            C1 ...
+        """
+        crop_img, crop_contour = self._crop_to_puzzle_area(img)
+        grid_elems = self._generate_grid_elements(crop_contour)
+
+        puzzle = {}
+        for elem_id, elem_contour in grid_elems.items():
+            elem_img = self._get_grid_img(crop_img, elem_contour)
+
+            if reduce(lambda x, y: x*y, elem_img.shape) < 500:
+                puzzle[elem_id] = "0"
+                continue
+
+            elem_img = self._MNIST_preprocess(pm.binary(elem_img).astype(
+                    "float32"))
+            features = self.feature_alg.get_features(elem_img)
+            res = self.ocr_alg.predict(features)
+            puzzle[elem_id] = str(res[0])
+
+        return puzzle
+
+    def _get_grid_img(self, crop_img, elem_contour):
+        cnt = Contour(elem_contour)
+        halfbox = cnt.shrinkbox(100).astype("f")
+        square = self._square_coordinates(cnt.side)
+        trans = cv2.getPerspectiveTransform(halfbox, square)
+        box = cv2.warpPerspective(crop_img, trans, (cnt.side, cnt.side))
+        _, thresh = cv2.threshold(box, 127, 255, 0)
+        binary = pm.binary(thresh)
+        box = binary.astype(int) * 255
+        box = pm.edgeoff(box)
+        box = mh.croptobbox(box)
+        return box
+
+    def _crop_to_puzzle_area(self, img):
         downsize = self._downsize_image(img)
         thresh = self._thresh_img(downsize)
         contours = self._get_contours(thresh.copy())
         biggest = self._get_biggest_rect(contours)
-
         warp = self._warp_to_contour(thresh, biggest)
-        _, square, side = self._square_contour_to_coords(biggest)
-        grid_elems = self._generate_grid_elements(biggest)
-        puzzle = []
-        for elem in grid_elems:
-            cnt = Contour(grid_elems[elem])
-            halfbox = cnt.shrinkbox(100).astype("f")
-            trans = cv2.getPerspectiveTransform(halfbox, square)
-            box = cv2.warpPerspective(warp, trans, (side, side))
-            _, thresh = cv2.threshold(box, 127, 255, 0)
-            binary = pm.binary(thresh)
-            box = binary.astype(int) * 255
-            box = pm.edgeoff(box)
-            box = mh.croptobbox(box)
+        return warp, biggest
 
-            if reduce(lambda x, y: x*y, box.shape) < 500:
-                continue
-            cv2.imwrite(elem + '.png', box)
-            box = self._MNIST_preprocess(pm.binary(box).astype("float32"))
-            features = self.feature_alg.get_features(box)
-            res = self.ocr_alg.predict(features)
-            puzzle.append(res)
-
-        return puzzle
-
-    def _square_coordinates(self, bottom_left, width):
+    def _square_coordinates(self, width, bottom_left=None):
+        """
+        returns ndarray of co-ordinates of a square clockwise from 
+        bottom left
+        """
+        if bottom_left is None:
+            bottom_left = (0, 0)
         (x, y), w = bottom_left, width
-        return [x, y], [x, y+w], [x+w, y+w], [x+w, y]  # bl tl tr br
-    
-    def _cross(self, a, b):
+        coords = [x, y], [x, y+w], [x+w, y+w], [x+w, y]  # BL TL TR BR
+        return np.array(coords, np.float32)
+
+    def _cross(self, A, B):
         """cross product of elements in a and elements in b"""
-        return [a + b for a in a for b in b]
+        return [a + b for a in A for b in B]
     
     def _downsize_image(self, img):
         if sum(img.shape[:2]) > 1500:
@@ -67,8 +104,13 @@ class OCRManager(object):
         return img
     
     def _remove_image_shading(self, image, pixelk=None, ksize=None):
-        # apply morphological closing on image to extract background
-        # then divide original image to remove background shading
+        """
+        Improves contrast of image by removing shaing in image.
+
+        Applys morphological closing on image to extract background
+        (this removes thin elements e.g. text and lines)
+        then divide original image to remove background shading
+        """
         if pixelk is None: 
             pixelk = 3
         if ksize is None: 
@@ -94,21 +136,9 @@ class OCRManager(object):
             if len(contours[i].approx) == 4:
                 return contours[i]
     
-    def _sobel_filter(self, image, xdirection=True, ksize=None):
-        if xdirection is True:
-            x, y = 1, 0
-        else:
-            x, y = 0, 1
-        if ksize is None: 
-            ksize = 7
-        dx = cv2.Sobel(image, cv2.CV_16S, x, y, ksize=ksize)
-        dx = cv2.convertScaleAbs(dx)
-        cv2.normalize(dx, dx, 0, 255, cv2.NORM_MINMAX)
-        return dx
-    
     def _warp_to_contour(self, image, contour):
         side = contour.side
-        square = np.array(self._square_coordinates((0, 0), side), np.float32)
+        square = self._square_coordinates(side)
         trans = cv2.getPerspectiveTransform(contour.bbox.astype("f"), square)
         return cv2.warpPerspective(image, trans, (side, side))
     
@@ -117,13 +147,12 @@ class OCRManager(object):
         bl_grid = [(x, y) for y in bl for x in bl]
         width = bl[1]
         side = width.astype("i")
-        square = np.array(self._square_coordinates((0, 0), side), np.float32)
-        grid_elements = [np.array(self._square_coordinates(e, width), np.float32) for e in bl_grid]
-        return grid_elements, square, side
+        grid_elements = [self._square_coordinates(side, e) for e in bl_grid]
+        return grid_elements, side
         
     def _generate_grid_elements(self, contour):
         """Generate 4 co-ordinates for each element """
-        grid_coordinates, _, _ = self._square_contour_to_coords(contour)
+        grid_coordinates, side = self._square_contour_to_coords(contour)
        
         digits = '123456789'
         rows = 'ABCDEFGHI'
@@ -138,6 +167,14 @@ class OCRManager(object):
         return thresh
 
     def _MNIST_preprocess(self, img):
+        """
+        Applys image processing that mirrors the preprocessing of the
+        MNIST dataset.
+        Assumes image has been cropped to bounding box.
+
+        Scales image down to 20 x 20 then centered in a 28 x 28 grid
+        based on the centre of mass of input image
+        """
         # get ratio to scale image down to 20x20
         ratio = min(20./img.shape[0], 20./img.shape[1])
         scaleshape = (img.shape[0] * ratio, img.shape[1] * ratio)

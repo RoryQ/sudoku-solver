@@ -17,8 +17,6 @@ requests==2.2.1
 rq==0.4.5
 scikit-learn==0.15.2
 six==1.6.1
-tinyocr==0.2.3
 wsgiref==0.1.2
 numpy
 scipy
-sqlite3

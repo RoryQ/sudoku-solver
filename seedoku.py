@@ -3,7 +3,7 @@ import numpy as np
 from contours import Contour
 import pymorph as pm
 import mahotas as mh
-from tinyocr.feature.resize import Resize
+from mytinyocr.feature.resize import Resize
 
 class Seedoku(object):
     """

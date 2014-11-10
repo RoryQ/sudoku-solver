@@ -1,5 +1,5 @@
 from sudoku import Sudoku
-import gzip, cStringIO, cPickle, os, tinyocr
+import gzip, cStringIO, cPickle, os
 
 def solvepuzzle(puzzle):
     solver = Sudoku()

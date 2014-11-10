@@ -21,3 +21,4 @@ tinyocr==0.2.3
 wsgiref==0.1.2
 numpy
 scipy
+sqlite3

@@ -9,15 +9,13 @@ argparse==1.2.1
 gunicorn==18.0
 heroku==0.1.4
 itsdangerous==0.24
-mahotas==1.2.3
-numpy==1.9.1
 pymorph==0.96
+mahotas==1.2.3
 python-dateutil==1.5
 redis==2.9.1
 requests==2.2.1
 rq==0.4.5
 scikit-learn==0.15.2
-scipy==0.14.0
 six==1.6.1
 tinyocr==0.2.3
 wsgiref==0.1.2

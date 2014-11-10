@@ -3,7 +3,7 @@ import numpy as np
 from contours import Contour
 import pymorph as pm
 import mahotas as mh
-from mytinyocr.feature.resize import Resize
+from tinyocr.feature.resize import Resize
 
 class Seedoku(object):
     """
@@ -16,7 +16,7 @@ class Seedoku(object):
     ocr algorithm to predict puzzle element digit values. Uses Resize
     from tinyocr.feature.resize as the default feature algorithm
 
-    Seedoku(ocr_alg, feature_alg) -> same as above, but allows a custom 
+    Seedoku(ocr_alg, feature_alg) -> same as above, but allows a custom
     feature detection algorithm
     """
 
@@ -57,12 +57,11 @@ class Seedoku(object):
             if reduce(lambda x, y: x*y, elem_img.shape) < 500:
                 puzzle[elem_id] = "0"
                 continue
-
-            elem_img = self._MNIST_preprocess(pm.binary(elem_img).astype(
-                    "float32"))
+            elem_img = pm.binary(elem_img).astype("float32")
+            elem_img = self._MNIST_preprocess(elem_img)
             features = self.feature_alg.get_features(elem_img)
-            res = self.ocr_alg.predict(features)
-            puzzle[elem_id] = str(res[0])
+            guess = self.ocr_alg.predict(features)
+            puzzle[elem_id] = str(guess[0])
 
         return puzzle
 

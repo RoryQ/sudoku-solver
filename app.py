@@ -11,6 +11,9 @@ import os
 import heroku
 import re
 import math
+import util
+from seedoku import Seedoku
+import mahotas as mh
 
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
 
@@ -19,6 +22,10 @@ app.config.from_object('config')
 app.debug = os.getenv('DEBUG') == "True"
 
 su = Sudoku()
+
+ocr = util.fast_unpickle_gzip('SVM.p.gz')
+ocr._update_rq = False
+print 'ocr loaded'
 
 redis_url = os.getenv('REDISTOGO_URL', 'redis://localhost:6379')
 redis_conn = redis.from_url(redis_url)
@@ -46,9 +53,10 @@ def hire(queue=None):
                 if i == 0:
                     workers = int(math.ceil(queue.count/15.0))
                     #heroku_app.processes['worker'].scale(workers)
-                    cloud._http_resource(method='POST',
-                                         resource=('apps', 'sudokusolver', 'ps', 'scale'),
-                                         data={'type': 'worker', 'qty': workers})
+                    cloud._http_resource(
+                            method='POST',
+                            resource=('apps', 'sudokusolver', 'ps', 'scale'),
+                            data={'type': 'worker', 'qty': workers})
             return ctx
         return decorated
     return decorator
@@ -61,9 +69,10 @@ def fire(queue=None):
             #fire
             if queue is not None and queue.count == 0:
                 #heroku_app.processes['worker'].scale(0)
-                cloud._http_resource(method='POST',
-                                     resource=('apps', 'sudokusolver', 'ps', 'scale'),
-                                     data={'type': 'worker', 'qty': 0})
+                cloud._http_resource(
+                        method='POST',
+                        resource=('apps', 'sudokusolver', 'ps', 'scale'),
+                        data={'type': 'worker', 'qty': 0})
             return ctx
         return decorated
     return decorator
@@ -102,8 +111,7 @@ def rendergrid(puzzle=None):
         display = su.display(su.solve(puzzle))
     else:
         abort(400)
-    return render_template('puzzle.html',
-                           puzzle=display)
+    return render_template('puzzle.html', puzzle=display)
 
 @app.route('/api/v1.0/solve/<string:puzzle>', methods=['GET', 'POST'])
 @hire(q)
@@ -115,6 +123,14 @@ def solve_puzzle(puzzle):
     if solution is not False:
         display = su.display(solution)
     return jsonify({'solution': solution, 'display': display, 'puzzle': puzzle})
+
+@app.route('/seedoku/', methods=['GET', 'POST'])
+def seedoku_test():
+    seedoku = Seedoku(ocr)
+    img = mh.imread('puzzle.jpg')
+    sol = seedoku.image_to_puzzle(img)
+    print sol
+    return render_template('puzzle.html', puzzle=su.display(sol))
 
 @app.errorhandler(1404)
 def not_found(error):

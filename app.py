@@ -127,10 +127,11 @@ def solve_puzzle(puzzle):
 @app.route('/seedoku/', methods=['GET', 'POST'])
 def seedoku_test():
     seedoku = Seedoku(ocr)
-    img = cv2.imread('puzzle.jpg')
-    sol = seedoku.image_to_puzzle(img)
-    print sol
-    return render_template('puzzle.html', puzzle=su.display(sol))
+    img = cv2.imread('seedoku/puzzle.jpg')
+    if img is not None:
+        sol = seedoku.image_to_puzzle(img)
+        print sol
+        return render_template('puzzle.html', puzzle=su.display(sol))
 
 @app.errorhandler(1404)
 def not_found(error):

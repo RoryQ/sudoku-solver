@@ -13,7 +13,7 @@ import re
 import math
 import util
 from seedoku import Seedoku
-import mahotas as mh
+import cv2
 
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
 
@@ -127,10 +127,11 @@ def solve_puzzle(puzzle):
 @app.route('/seedoku/', methods=['GET', 'POST'])
 def seedoku_test():
     seedoku = Seedoku(ocr)
-    img = mh.imread('puzzle.jpg')
-    sol = seedoku.image_to_puzzle(img)
-    print sol
-    return render_template('puzzle.html', puzzle=su.display(sol))
+    img = cv2.imread('seedoku/puzzle.jpg')
+    if img is not None:
+        sol = seedoku.image_to_puzzle(img)
+        print sol
+        return render_template('puzzle.html', puzzle=su.display(sol))
 
 @app.errorhandler(1404)
 def not_found(error):

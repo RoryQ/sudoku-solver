@@ -3,7 +3,7 @@ import numpy as np
 from contours import Contour
 import pymorph as pm
 import mahotas as mh
-from tinyocr.feature.resize import Resize
+from mytinyocr.feature.resize import Resize
 
 class Seedoku(object):
     """
@@ -131,7 +131,7 @@ class Seedoku(object):
     
     
     def _get_contours(self, imag):
-        contours, _ = cv2.findContours(imag, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, _ = cv2.findContours(imag, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         contours = [Contour(ctn) for ctn in contours]
         contours.sort(key=lambda x: x.area, reverse=True)
         return contours

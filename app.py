@@ -14,8 +14,13 @@ import math
 import util
 from seedoku import Seedoku
 import cv2
+import numpy as np
+from urllib2 import urlopen
+from cStringIO import StringIO
 
+print cv2.__version__
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
+ALLOWED_EXTENSIONS = set(['jpg', 'jpeg', 'png', 'gif', 'bmp'])
 
 app = Flask(__name__)
 app.config.from_object('config')
@@ -133,6 +138,40 @@ def seedoku_test():
         print sol
         return render_template('puzzle.html', puzzle=su.display(sol))
 
+@app.route('/upload/', methods=['GET', 'POST'])
+def upload_photo():
+    if request.method == 'POST':
+        f = request.files['file']
+        if f and allowed_filename(f.filename):
+            img = numpy_image_from_stringio(f.stream)
+            if img is not None:
+                cv2.imwrite('test.jpg', img)
+                seedoku = Seedoku(ocr)
+                sol = seedoku.image_to_puzzle(img)
+                print sol
+                return render_template('puzzle.html', puzzle=su.display(sol))
+    return """
+        <!doctype html>
+        <title>Upload new File</title>
+        <h1>Upload new File</h1>
+        <form action="" method=post enctype=multipart/form-data>
+          <p><input type=file name=file>
+             <input type=submit value=Upload>
+        </form>
+        <p></p>
+        """ 
+
+def numpy_image_from_stringio(img_stream, cv2_img_flag=0):
+    img_stream.seek(0)
+    img_array = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
+    return cv2.imdecode(img_array, cv2_img_flag)
+
+def numpy_image_from_url(url, cv2_img_flag=0):
+    request = urlopen(url)
+    img_array = np.asarray(bytearray(request.read()), dtype=np.uint8)
+    return cv2.imdecode(img_array, cv2_img_flag)
+
+
 @app.errorhandler(1404)
 def not_found(error):
     return make_response(jsonify({'error': 'not found'}), 404)
@@ -147,6 +186,10 @@ def nl2br(eval_ctx, value):
     if eval_ctx.autoescape:
         result = Markup(result)
     return result
+
+def allowed_filename(filename):
+    return '.' in filename and \
+            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 if __name__ == '__main__':
     app.run(debug=True)

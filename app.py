@@ -171,12 +171,9 @@ def numpy_image_from_url(url, cv2_img_flag=0):
     img_array = np.asarray(bytearray(request.read()), dtype=np.uint8)
     return cv2.imdecode(img_array, cv2_img_flag)
 
-
 @app.errorhandler(1404)
 def not_found(error):
     return make_response(jsonify({'error': 'not found'}), 404)
-
-
 
 @app.template_filter()
 @evalcontextfilter

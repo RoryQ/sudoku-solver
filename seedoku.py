@@ -4,6 +4,7 @@ from contours import Contour
 import pymorph as pm
 import mahotas as mh
 from mytinyocr.feature.resize import Resize
+import cPickle, io
 
 class Seedoku(object):
     """
@@ -105,7 +106,7 @@ class Seedoku(object):
         if sum(img.shape[:2]) > 1500:
             small = map((lambda a: int(a /(sum(img.shape[:2]) / 1500.0))), 
                         img.shape[:2])
-            return cv2.resize(img, tuple(small))
+            img = cv2.resize(img, tuple(small))
         return img
     
     def _remove_image_shading(self, image, pixelk=None, ksize=None):
@@ -120,8 +121,8 @@ class Seedoku(object):
             pixelk = 3
         if ksize is None: 
             ksize = 17
-        imgray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        gauss = cv2.GaussianBlur(imgray, (pixelk, pixelk), 0)
+        #imgray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gauss = cv2.GaussianBlur(image, (pixelk, pixelk), 0)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (ksize, ksize))
         closed = cv2.morphologyEx(gauss, cv2.MORPH_CLOSE, kernel)
         divide = cv2.divide(gauss.astype("f"), closed.astype("f"))

@@ -143,7 +143,7 @@ def upload_photo():
     if request.method == 'POST':
         f = request.files['file']
         if f and allowed_filename(f.filename):
-            img = numpy_image_from_stringio(f.stream)
+            img = numpy_image_from_stringio(f.stream, cv2.IMREAD_GRAYSCALE)
             if img is not None:
                 cv2.imwrite('test.jpg', img)
                 seedoku = Seedoku(ocr)

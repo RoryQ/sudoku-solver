@@ -150,16 +150,7 @@ def upload_photo():
                 sol = seedoku.image_to_puzzle(img)
                 print sol
                 return render_template('puzzle.html', puzzle=su.display(sol))
-    return """
-        <!doctype html>
-        <title>Upload new File</title>
-        <h1>Upload new File</h1>
-        <form action="" method=post enctype=multipart/form-data>
-          <p><input type=file name=file>
-             <input type=submit value=Upload>
-        </form>
-        <p></p>
-        """ 
+    return render_template('upload.html')
 
 def numpy_image_from_stringio(img_stream, cv2_img_flag=0):
     img_stream.seek(0)

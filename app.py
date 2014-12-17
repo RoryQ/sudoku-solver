@@ -22,9 +22,9 @@ print cv2.__version__
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
 ALLOWED_EXTENSIONS = set(['jpg', 'jpeg', 'png', 'gif', 'bmp'])
 
-app = Flask(__name__)
-app.config.from_object('config')
-app.debug = os.getenv('DEBUG') == "True"
+flask_app = Flask(__name__)
+flask_app.config.from_object('config')
+flask_app.debug = os.getenv('DEBUG') == "True"
 
 su = Sudoku()
 
@@ -82,7 +82,7 @@ def fire(queue=None):
         return decorated
     return decorator
 
-@app.route('/', methods=['POST', 'GET'])
+@flask_app.route('/', methods=['POST', 'GET'])
 @hire(q)
 def index():
     form = SodokuGrid(csrf_enabled=False)
@@ -96,7 +96,7 @@ def index():
     return render_template('sudoku.html', title="sudoku", form=form)
 
 
-@app.route('/processing/', methods=['POST'])
+@flask_app.route('/processing/', methods=['POST'])
 @fire(q)
 def processing():
     job_id = request.form['job_id']
@@ -110,7 +110,7 @@ def processing():
         return make_response(resp)
     return make_response(jsonify({'job_id': job.key, 'status': 'processing'}))
 
-@app.route('/rendergrid/<string:puzzle>')
+@flask_app.route('/rendergrid/<string:puzzle>')
 def rendergrid(puzzle=None):
     if puzzle is not None and len(puzzle) == 81 and su.solve(puzzle):
         display = su.display(su.solve(puzzle))
@@ -118,7 +118,7 @@ def rendergrid(puzzle=None):
         abort(400)
     return render_template('puzzle.html', puzzle=display)
 
-@app.route('/api/v1.0/solve/<string:puzzle>', methods=['GET', 'POST'])
+@flask_app.route('/api/v1.0/solve/<string:puzzle>', methods=['GET', 'POST'])
 @hire(q)
 def solve_puzzle(puzzle):
     if len(puzzle) != 81:
@@ -129,7 +129,7 @@ def solve_puzzle(puzzle):
         display = su.display(solution)
     return jsonify({'solution': solution, 'display': display, 'puzzle': puzzle})
 
-@app.route('/seedoku/', methods=['GET', 'POST'])
+@flask_app.route('/seedoku/', methods=['GET', 'POST'])
 def seedoku_test():
     seedoku = Seedoku(ocr)
     img = cv2.imread('seedoku/puzzle.jpg')
@@ -138,7 +138,7 @@ def seedoku_test():
         print sol
         return render_template('puzzle.html', puzzle=su.display(sol))
 
-@app.route('/upload/', methods=['GET', 'POST'])
+@flask_app.route('/upload/', methods=['GET', 'POST'])
 def upload_photo():
     if request.method == 'POST':
         f = request.files['file']
@@ -162,11 +162,11 @@ def numpy_image_from_url(url, cv2_img_flag=0):
     img_array = np.asarray(bytearray(request.read()), dtype=np.uint8)
     return cv2.imdecode(img_array, cv2_img_flag)
 
-@app.errorhandler(1404)
+@flask_app.errorhandler(1404)
 def not_found(error):
     return make_response(jsonify({'error': 'not found'}), 404)
 
-@app.template_filter()
+@flask_app.template_filter()
 @evalcontextfilter
 def nl2br(eval_ctx, value):
     result = u'\n\n'.join(u'<p>%s</p>' % p.replace('\n', Markup('<br/>\n')) \
@@ -180,4 +180,4 @@ def allowed_filename(filename):
             filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    flask_app.run(debug=True)

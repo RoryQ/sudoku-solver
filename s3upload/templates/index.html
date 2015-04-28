@@ -1,87 +1,90 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <title>Upload Demo</title>
-        <link rel="stylesheet" type="text/css" href="/static/index.css">
-        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
-        <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.9.0/jquery-ui.min.js"></script>
-        <script type="text/javascript" src="/static/jquery.fileupload.js"></script>
-        <script type="text/javascript">
-            (function() {
-              var log;
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <title>Upload Demo</title>
+  <link rel="stylesheet" type="text/css" href="/static/index.css">
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.9.0/jquery-ui.min.js"></script>
+  <script type="text/javascript" src="/static/jquery.fileupload.js"></script>
+  <script type="text/javascript">
+  (function() {
+    var log;
 
-              log = function(status) {
-                return $("#status").html(status);
-              };
+    log = function(status) {
+      return $("#status").html(status);
+    };
 
-              $(function() {
-                var form;
-                $("#upload_button").click(function() {
-                  return $("input[type=file]").click();
-                });
-                form = $("#upload_form");
-                return form.fileupload({
-                  autoUpload: true,
-                  dataType: "xml",
-                  add: function(event, data) {
-                    log("fetching params");
-                    return $.ajax({
-                        type: 'POST',
-                        url: "{{ url_for('params') }}",
-                        data: JSON.stringify({ filename: data.files[0].name, type: data.files[0].type }),
-                        success: function(params) {
-                            form.find('input[name=key]').val(params.key);
-                            form.find('input[name=policy]').val(params.policy);
-                            form.find('input[name=signature]').val(params.signature);
-                            form.find('input[name=AWSAccessKeyId]').val(params.AWSAccessKeyId);
-                            return data.submit(); 
-                        },
-                        contentType: "application/json",
-                        dataType: 'json'});
-                  },
-                  send: function(event, data) {
-                    return log("sending");
-                  },
-                  progress: function(event, data) {
-                    return $("#progress_bar").css("width", (Math.round((event.loaded / event.total) * 1000) / 10) + "%");
-                  },
-                  fail: function(event, data) {
-                    return log("failure");
-                  },
-                  success: function(data) {
-                    var url = $(data).find('Location').text()
-                    $("#uploaded_image").prepend("<img src=\"" + url + "\"/>")
-                    return log("success");
-                  },
-                  done: function(event, data) {
-                    return log("done");
-                  }
-                });
-              });
-            }).call(this);
-        </script>
-    </head>
-    <body>
-        <h1>Upload Demo</h1>
-        <div id="invisible">
-            <form action="{{ config.AWS_S3_BUCKET_URL }}" method="post" enctype="multipart/form-data" id="upload_form">
-                <input type="hidden" name="key"></input>
-                <input type="hidden" name="AWSAccessKeyId"></input>
-                <input type="hidden" name="acl" value="public-read"></input>
-                <input type="hidden" name="policy"></input>
-                <input type="hidden" name="signature"></input>
-                <input type="hidden" name="success_action_status" value="201"></input>
-                <input type="file" name="file" accept="image/*"></input>
-            </form>
-        </div>
-        <div id="wrapper">
-            <img src="/static/upload_icon.png" alt="icon" id="upload_button"/>
-            <div id="progress_container">
-                <div id="progress_bar"></div>
-            </div>
-        </div>
-        <div id="status_container">Status: <span id="status">idle</span></div>
-        <div id="image_container"><span id="uploaded_image"</span></div>
-    </body>
+    $(function() {
+      var form;
+      $("#upload_button").click(function() {
+        return $("input[type=file]").click();
+      });
+      form = $("#upload_form");
+      return form.fileupload({
+        autoUpload: true,
+        dataType: "xml",
+        add: function(event, data) {
+          log("fetching params");
+          return $.ajax({
+            type: 'POST',
+            url: "{{ url_for('params') }}",
+            data: JSON.stringify({ filename: data.files[0].name, type: data.files[0].type }),
+            success: function(params) {
+              form.find('input[name=key]').val(params.key);
+              form.find('input[name=policy]').val(params.policy);
+              form.find('input[name=signature]').val(params.signature);
+              form.find('input[name=AWSAccessKeyId]').val(params.AWSAccessKeyId);
+              return data.submit(); 
+            },
+            contentType: "application/json",
+            dataType: 'json'});
+        },
+        send: function(event, data) {
+          return log("sending");
+        },
+        progress: function(event, data) {
+          return $("#progress_bar").css("width", (Math.round((event.loaded / event.total) * 1000) / 10) + "%");
+        },
+        fail: function(event, data) {
+          return log("failure");
+        },
+        success: function(data) {
+          var keyval = $(data).find('Key').text()
+          var url = ""
+          $.get("{{ url_for('public_link') }}", { key: keyval })
+          .done(function(data) { 
+            $("#uploaded_image").prepend("<img src=\"" + data + "\"/>") 
+          })
+          return log("success");
+        },
+        done: function(event, data) {
+          return log("done");
+        }
+      });
+  });
+  }).call(this);
+  </script>
+</head>
+<body>
+  <h1>Upload Demo</h1>
+  <div id="invisible">
+    <form action="{{ config.AWS_S3_BUCKET_URL }}" method="post" enctype="multipart/form-data" id="upload_form">
+      <input type="hidden" name="key"></input>
+      <input type="hidden" name="AWSAccessKeyId"></input>
+      <input type="hidden" name="acl" value="authenticated-read"></input>
+      <input type="hidden" name="policy"></input>
+      <input type="hidden" name="signature"></input>
+      <input type="hidden" name="success_action_status" value="201"></input>
+      <input type="file" name="file" accept="image/*"></input>
+    </div>
+  <div id="wrapper">
+    <img src="/static/upload_icon.png" alt="icon" id="upload_button"/>
+    <div id="progress_container">
+      <div id="progress_bar"></div>
+    </div>
+  </div>
+  <div id="status_container">Status: <span id="status">idle</span></div>
+  <div id="image_container"><span id="uploaded_image"</span></div>
+</body>
 </html>

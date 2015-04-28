@@ -7,16 +7,20 @@ import redis
 from rq import Queue
 from rq.job import Job
 from functools import wraps
-import os
-import heroku
-import re
-import math
-import util
+import os, heroku, re, math, util
+from json import dumps
+from os import environ
+from uuid import uuid4
+from boto.s3.connection import S3Connection
+import hmac, hashlib
+import os.path
 from seedoku import Seedoku
 import cv2
 import numpy as np
 from urllib2 import urlopen
 from cStringIO import StringIO
+from base64 import b64encode
+from datetime import datetime, timedelta
 
 print cv2.__version__
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
@@ -25,6 +29,9 @@ ALLOWED_EXTENSIONS = set(['jpg', 'jpeg', 'png', 'gif', 'bmp'])
 flask_app = Flask(__name__)
 flask_app.config.from_object('config')
 flask_app.debug = os.getenv('DEBUG') == "True"
+for key in ('AWS_SEEDOKU_WRITE_KEY', 'AWS_SEEDOKU_WRITE_SECRET', 'AWS_S3_BUCKET_URL',
+        'AWS_SEEDOKU_READ_KEY', 'AWS_SEEDOKU_READ_SECRET', 'AWS_SEEDOKU_S3_BUCKET'):
+    flask_app.config[key] = environ[key] 
 
 su = Sudoku()
 
@@ -142,7 +149,7 @@ def seedoku_test():
 def upload_photo():
     if request.method == 'POST':
         f = request.files['file']
-        if f and allowed_filename(f.filename):
+        if f and allowed_filetype(f.filename):
             img = numpy_image_from_stringio(f.stream, cv2.IMREAD_GRAYSCALE)
             if img is not None:
                 cv2.imwrite('test.jpg', img)
@@ -151,6 +158,46 @@ def upload_photo():
                 print sol
                 return render_template('puzzle.html', puzzle=su.display(sol))
     return render_template('upload.html')
+
+@flask_app.route('/uploads3/')
+def upload_to_s3():
+    return render_template('s3upload.html')
+
+@flask_app.route('/public_link')
+def public_link():
+    key = request.args.get('key')
+    s3conn = S3Connection(flask_app.config['AWS_SEEDOKU_WRITE_KEY'], flask_app.config['AWS_SEEDOKU_WRITE_SECRET'])
+    url = s3conn.generate_url(300, 'GET', flask_app.config['AWS_SEEDOKU_S3_BUCKET'], key)
+    return url
+
+@flask_app.route('/params', methods=['POST'])
+def params():
+    fname = request.json.get('filename')
+    if not (fname and allowed_filetype(fname)):
+        return make_response(jsonify({'error' : '{0} file type not supported'.format(fname)}), 400)
+
+    def make_policy():
+        policy_object = {
+                "expiration": (datetime.now() + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+                "conditions": [
+                    {"bucket" : flask_app.config['AWS_SEEDOKU_S3_BUCKET']},
+                    {"acl" : "authenticated-read"},
+                    ["starts-with", "$key", "seedoku/"],
+                    {"success_action_status" : "201"}
+                    ]
+                }
+        return b64encode(dumps(policy_object).replace('\n', '').replace('\r', ''))
+
+    def sign_policy(policy):
+        return b64encode(hmac.new(flask_app.config['AWS_SEEDOKU_WRITE_SECRET'], policy, hashlib.sha1).digest())
+
+    policy = make_policy()
+    return jsonify({
+        "policy": policy,
+        "signature": sign_policy(policy),
+        "key": "seedoku/" + uuid4().hex + "." + get_extension(fname),
+        "AWSAccessKeyId" : flask_app.config['AWS_SEEDOKU_WRITE_KEY']
+        })
 
 def numpy_image_from_stringio(img_stream, cv2_img_flag=0):
     img_stream.seek(0)
@@ -175,9 +222,11 @@ def nl2br(eval_ctx, value):
         result = Markup(result)
     return result
 
-def allowed_filename(filename):
-    return '.' in filename and \
-            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+def allowed_filetype(filename):
+    return '.' in filename and get_extension(filename) in ALLOWED_EXTENSIONS
+
+def get_extension(filename):
+    return os.path.splitext(filename)[1][1:].lower()
 
 if __name__ == '__main__':
     flask_app.run(debug=True)

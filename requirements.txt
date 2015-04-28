@@ -20,3 +20,4 @@ six==1.6.1
 wsgiref==0.1.2
 numpy
 scipy
+boto==2.38.0

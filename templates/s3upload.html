@@ -9,7 +9,7 @@
   <script type="text/javascript" src="/static/jquery.fileupload.js"></script>
   <script type="text/javascript">
   (function() {
-    var log;
+    var log
 
     log = function(status) {
       return $("#status").html(status);
@@ -21,6 +21,20 @@
         return $("input[type=file]").click();
       });
       form = $("#upload_form");
+
+      function getSolution(data){
+        var keyval = $(data).find('Key').text()
+        return $.ajax({url:"{{ url_for('upload_to_s3') }}",
+            type: 'POST',
+            data: JSON.stringify( {key: keyval}),
+            contentType: "application/json"
+          });
+      }
+
+      function puzzle(render) {
+        return $("#puzzle_render").html(render);
+      }
+
       return form.fileupload({
         autoUpload: true,
         dataType: "xml",
@@ -50,16 +64,11 @@
           return log("failure");
         },
         success: function(data) {
-          var keyval = $(data).find('Key').text()
-          var url = ""
-          $.get("{{ url_for('public_link') }}", { key: keyval })
-          .done(function(data) { 
-            $("#uploaded_image").prepend("<img src=\"" + data + "\"/>") 
-          })
-          return log("success");
+          getSolution(data).done(puzzle);
+          log("success")
         },
         done: function(event, data) {
-          return log("done");
+          //return log("done");
         }
       });
   });
@@ -85,6 +94,7 @@
     </div>
   </div>
   <div id="status_container">Status: <span id="status">idle</span></div>
-  <div id="image_container"><span id="uploaded_image"</span></div>
+  <div id="image_container"><span id="uploaded_image"></span></div>
+  <div id="puzzle_container"><span id="puzzle_render"></span></div>
 </body>
 </html>

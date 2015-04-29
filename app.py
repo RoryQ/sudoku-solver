@@ -159,16 +159,24 @@ def upload_photo():
                 return render_template('puzzle.html', puzzle=su.display(sol))
     return render_template('upload.html')
 
-@flask_app.route('/uploads3/')
+@flask_app.route('/uploads3/', methods=['GET', 'POST'])
 def upload_to_s3():
+    if request.method == 'POST':
+        key = request.json.get('key')
+        url = generate_temp_s3_url_from_key(key)
+        img = numpy_image_from_url(url, cv2.IMREAD_GRAYSCALE)
+        if img is not None:
+            cv2.imwrite('test_s3.{0}'.format(get_extension(key)), img)
+            seedoku = Seedoku(ocr)
+            sol = seedoku.image_to_puzzle(img)
+            print sol
+            return render_template('puzzle_snippet.html', puzzle=su.display(sol))
     return render_template('s3upload.html')
 
 @flask_app.route('/public_link')
 def public_link():
     key = request.args.get('key')
-    s3conn = S3Connection(flask_app.config['AWS_SEEDOKU_WRITE_KEY'], flask_app.config['AWS_SEEDOKU_WRITE_SECRET'])
-    url = s3conn.generate_url(300, 'GET', flask_app.config['AWS_SEEDOKU_S3_BUCKET'], key)
-    return url
+    return generate_temp_s3_url_from_key(key)
 
 @flask_app.route('/params', methods=['POST'])
 def params():
@@ -208,6 +216,12 @@ def numpy_image_from_url(url, cv2_img_flag=0):
     request = urlopen(url)
     img_array = np.asarray(bytearray(request.read()), dtype=np.uint8)
     return cv2.imdecode(img_array, cv2_img_flag)
+
+def generate_temp_s3_url_from_key(key):
+    s3conn = S3Connection(flask_app.config['AWS_SEEDOKU_WRITE_KEY'], flask_app.config['AWS_SEEDOKU_WRITE_SECRET'])
+    url = s3conn.generate_url(300, 'GET', flask_app.config['AWS_SEEDOKU_S3_BUCKET'], key)
+    print url
+    return url
 
 @flask_app.errorhandler(1404)
 def not_found(error):

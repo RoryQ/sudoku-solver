@@ -61,7 +61,9 @@
           return log("sending");
         },
         progress: function(event, data) {
-          return $("#progress_bar").css("width", (Math.round((event.loaded / event.total) * 1000) / 10) + "%");
+          var percentage = Math.round((event.loaded / event.total) * 1000) / 10 + "%";
+          $("#progress_bar").text(percentage)
+          $("#progress_bar").css("width", percentage);
         },
         fail: function(event, data) {
           console.log(event);

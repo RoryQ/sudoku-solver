@@ -51,7 +51,7 @@
               form.find('input[name=signature]').val(params.signature);
               form.find('input[name=AWSAccessKeyId]').val(params.AWSAccessKeyId);
               $(".upload").hide();
-              $("#progress_container").show();
+              $("#progress_container").removeClass('hidden');
               return data.submit();
             },
             contentType: "application/json",

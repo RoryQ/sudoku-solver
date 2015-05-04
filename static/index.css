@@ -11,15 +11,14 @@ body {
 #wrapper {
     height: 64px;
 }
-#upload_button {
-    display: inline-block;
-    margin: 8px;
-    cursor: pointer;
-}
 
 #status_container {
     margin-top: 10px;
 }
 #puzzle_container {
     margin-top: 10px;
+}
+
+#progress_container {
+  width: 80%;
 }

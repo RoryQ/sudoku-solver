@@ -3,19 +3,13 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <title>Upload Demo</title>
-  <link rel="stylesheet" type="text/css" href="/static/index.css">
   <link rel="stylesheet" type="text/css" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="/static/index.css">
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.9.0/jquery-ui.min.js"></script>
   <script type="text/javascript" src="/static/jquery.fileupload.js"></script>
   <script type="text/javascript">
   (function() {
-    var log
-
-    log = function(status) {
-      return $("#status").html(status);
-    };
-
     $(function() {
       var form;
       $("#upload_button").click(function() {
@@ -32,49 +26,51 @@
           });
       }
 
-      function puzzle(render) {
-        return $("#puzzle_render").html(render);
+      function updateProgressBar(percentage){
+        $("#progress_bar").text(percentage);
+        $("#progress_bar").css("width", percentage);
+      }
+
+      function successGetSolution(render) {
+        updateProgressBar("100%")
+        $("#puzzle_render").html(render);
+        $("#progress_container").hide();
+      }
+
+      function fileUploadFormAdd(event, data) {
+        //console.log(event);
+        return $.ajax({
+          type: 'POST',
+          url: "{{ url_for('params') }}",
+          data: JSON.stringify({ filename: data.files[0].name, type: data.files[0].type }),
+          success: function(params) {
+            form.find('input[name=key]').val(params.key);
+            form.find('input[name=policy]').val(params.policy);
+            form.find('input[name=signature]').val(params.signature);
+            form.find('input[name=AWSAccessKeyId]').val(params.AWSAccessKeyId);
+            $(".upload").hide();
+            $("#progress_container").removeClass('hidden');
+            return data.submit();
+          },
+          contentType: "application/json",
+          dataType: 'json'});
       }
 
       return form.fileupload({
         autoUpload: true,
         dataType: "xml",
-        add: function(event, data) {
-          log("fetching params");
-          return $.ajax({
-            type: 'POST',
-            url: "{{ url_for('params') }}",
-            data: JSON.stringify({ filename: data.files[0].name, type: data.files[0].type }),
-            success: function(params) {
-              form.find('input[name=key]').val(params.key);
-              form.find('input[name=policy]').val(params.policy);
-              form.find('input[name=signature]').val(params.signature);
-              form.find('input[name=AWSAccessKeyId]').val(params.AWSAccessKeyId);
-              $(".upload").hide();
-              $("#progress_container").removeClass('hidden');
-              return data.submit();
-            },
-            contentType: "application/json",
-            dataType: 'json'});
-        },
-        send: function(event, data) {
-          return log("sending");
-        },
+        add: fileUploadFormAdd,
         progress: function(event, data) {
-          var percentage = Math.round((event.loaded / event.total) * 1000) / 10 + "%";
-          $("#progress_bar").text(percentage)
-          $("#progress_bar").css("width", percentage);
+          var percentage = Math.floor((event.loaded / event.total * 80)) + "%";
+          updateProgressBar(percentage);
         },
         fail: function(event, data) {
           console.log(event);
-          return log("failure");
+          $(".alert").removeClass('hidden');
         },
         success: function(data) {
-          getSolution(data).done(puzzle);
-          log("success")
-        },
-        done: function(event, data) {
-          //return log("done");
+          console.log("upload to s3 success");
+          getSolution(data).done(successGetSolution);
         }
       });
   });
@@ -82,24 +78,13 @@
   </script>
 </head>
 <body>
-  <nav class="navbar navbar-default">
-    <div class="container-fluid">
-      <div class="navbar-header">
-        <a class="navbar-brand" href="#">
-          SeeDoku
-        </a>
-      </div>
-    </div>
-  </nav>
-
-
   <div class="container">
     <div class="row">
       <div class="col-md-12">
 
         <div class="jumbotron">
-          <h1>SuDoku Solver!</h1>
-          <p>Upload an puzzle and we'll solve it for you</p>
+          <h1>Su Doku Solver!</h1>
+          <p>Upload an image of a puzzle and we'll solve it for you</p>
           <div id="invisible">
             <form action="{{ config.AWS_S3_BUCKET_URL }}" method="post" enctype="multipart/form-data" id="upload_form">
               <input type="hidden" name="key"></input>
@@ -118,12 +103,15 @@
 
 
           <div id="progress_container" class="progress hidden">
-            <div id="progress_bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+            <div id="progress_bar" class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
 
             </div>
           </div>
 
-          <p class="hidden" id="status_container">Status: <span id="status">idle</span></p>
+          <div class="alert alert-danger hidden" role="alert">
+            <a href="." class="alert-link">Error during processing. Click to refresh and try again.</a>
+          </div>
+
           <div id="image_container"><span id="uploaded_image"></span></div>
           <div id="puzzle_container"><span id="puzzle_render"></span></div>
           <div class="clearfix"></div>
@@ -131,6 +119,5 @@
       </div>
     </div>
   </div>
-
 </body>
 </html>

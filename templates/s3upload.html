@@ -4,6 +4,7 @@
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
   <title>Upload Demo</title>
   <link rel="stylesheet" type="text/css" href="/static/index.css">
+  <link rel="stylesheet" type="text/css" href="/static/bootstrap.min.css">
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jqueryui/1.9.0/jquery-ui.min.js"></script>
   <script type="text/javascript" src="/static/jquery.fileupload.js"></script>
@@ -76,25 +77,56 @@
   </script>
 </head>
 <body>
-  <h1>Upload Demo</h1>
-  <div id="invisible">
-    <form action="{{ config.AWS_S3_BUCKET_URL }}" method="post" enctype="multipart/form-data" id="upload_form">
-      <input type="hidden" name="key"></input>
-      <input type="hidden" name="AWSAccessKeyId"></input>
-      <input type="hidden" name="acl" value="authenticated-read"></input>
-      <input type="hidden" name="policy"></input>
-      <input type="hidden" name="signature"></input>
-      <input type="hidden" name="success_action_status" value="201"></input>
-      <input type="file" name="file" accept="image/*"></input>
+  <nav class="navbar navbar-default">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="#">
+          SeeDoku
+        </a>
+      </div>
     </div>
-  <div id="wrapper">
-    <img src="/static/upload_icon.png" alt="icon" id="upload_button"/>
-    <div id="progress_container">
-      <div id="progress_bar"></div>
+  </nav>
+
+
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+
+        <div class="jumbotron">
+          <h1>SuDoku Solver!</h1>
+          <p>Upload an puzzle and we'll solve it for you</p>
+          <div id="invisible">
+            <form action="{{ config.AWS_S3_BUCKET_URL }}" method="post" enctype="multipart/form-data" id="upload_form">
+              <input type="hidden" name="key"></input>
+              <input type="hidden" name="AWSAccessKeyId"></input>
+              <input type="hidden" name="acl" value="authenticated-read"></input>
+              <input type="hidden" name="policy"></input>
+              <input type="hidden" name="signature"></input>
+              <input type="hidden" name="success_action_status" value="201"></input>
+              <input type="file" name="file" accept="image/*"></input>
+            </form>
+          </div>
+
+          <div class="col-md-8 upload">
+            <button id="upload_button" class="btn-primary btn-lg">Upload</button>
+          </div>
+
+          <div class="col-md-8">
+            <div id="progress_container" class="progress hidden">
+              <div id="progress_bar" class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+
+              </div>
+            </div>
+          </div>
+
+          <p class="hidden" id="status_container">Status: <span id="status">idle</span></p>
+          <div class="col-md-8" id="image_container"><span id="uploaded_image"></span></div>
+          <div class="col-md-8" id="puzzle_container"><span id="puzzle_render"></span></div>
+          <div class="clearfix"></div>
+        </div>
+      </div>
     </div>
   </div>
-  <div id="status_container">Status: <span id="status">idle</span></div>
-  <div id="image_container"><span id="uploaded_image"></span></div>
-  <div id="puzzle_container"><span id="puzzle_render"></span></div>
+
 </body>
 </html>

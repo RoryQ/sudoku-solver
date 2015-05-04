@@ -7,3 +7,4 @@ tags
 *.pyc
 ocrdb
 mnist.pkl.gz
+py/

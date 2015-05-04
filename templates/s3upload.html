@@ -50,7 +50,9 @@
               form.find('input[name=policy]').val(params.policy);
               form.find('input[name=signature]').val(params.signature);
               form.find('input[name=AWSAccessKeyId]').val(params.AWSAccessKeyId);
-              return data.submit(); 
+              $(".upload").hide();
+              $("#progress_container").show();
+              return data.submit();
             },
             contentType: "application/json",
             dataType: 'json'});
@@ -62,6 +64,7 @@
           return $("#progress_bar").css("width", (Math.round((event.loaded / event.total) * 1000) / 10) + "%");
         },
         fail: function(event, data) {
+          console.log(event);
           return log("failure");
         },
         success: function(data) {

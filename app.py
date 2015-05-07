@@ -7,7 +7,7 @@ import redis
 from rq import Queue
 from rq.job import Job
 from functools import wraps
-import os, heroku, re, math, util
+import os, heroku, re, math, util, io
 from json import dumps
 from os import environ
 from uuid import uuid4
@@ -21,6 +21,7 @@ from urllib2 import urlopen
 from cStringIO import StringIO
 from base64 import b64encode
 from datetime import datetime, timedelta
+import exifread
 
 print cv2.__version__
 _paragraph_re = re.compile(r'(?:\r\n|\r|\n){2,}')
@@ -44,31 +45,33 @@ redis_conn = redis.from_url(redis_url)
 
 q = Queue('default', connection=redis_conn)
 
-heroku_key = os.getenv('HEROKU_API_KEY')
+if os.getenv('ISHEROKU') is not None:
+    heroku_key = os.getenv('HEROKU_API_KEY')
 
-cloud = heroku.from_key(heroku_key)
-heroku_app = cloud.apps['sudokusolver']
+    cloud = heroku.from_key(heroku_key)
+    heroku_app = cloud.apps['sudokusolver']
 
 def hire(queue=None):
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
             ctx = f(*args, **kwargs)
-            #hire
-            if queue is not None and queue.count > 0:
-                i = 0
-                try:
-                    for a in heroku_app.processes['worker']:
-                        i += 1
-                except KeyError:
+            if os.getenv('ISHEROKU') is not None:
+                #hire
+                if queue is not None and queue.count > 0:
                     i = 0
-                if i == 0:
-                    workers = int(math.ceil(queue.count/15.0))
-                    #heroku_app.processes['worker'].scale(workers)
-                    cloud._http_resource(
-                            method='POST',
-                            resource=('apps', 'sudokusolver', 'ps', 'scale'),
-                            data={'type': 'worker', 'qty': workers})
+                    try:
+                        for a in heroku_app.processes['worker']:
+                            i += 1
+                    except KeyError:
+                        i = 0
+                    if i == 0:
+                        workers = int(math.ceil(queue.count/15.0))
+                        #heroku_app.processes['worker'].scale(workers)
+                        cloud._http_resource(
+                                method='POST',
+                                resource=('apps', 'sudokusolver', 'ps', 'scale'),
+                                data={'type': 'worker', 'qty': workers})
             return ctx
         return decorated
     return decorator
@@ -78,13 +81,14 @@ def fire(queue=None):
         @wraps(f)
         def decorated(*args, **kwargs):
             ctx = f(*args, **kwargs)
-            #fire
-            if queue is not None and queue.count == 0:
-                #heroku_app.processes['worker'].scale(0)
-                cloud._http_resource(
-                        method='POST',
-                        resource=('apps', 'sudokusolver', 'ps', 'scale'),
-                        data={'type': 'worker', 'qty': 0})
+            if os.getenv('ISHEROKU') is not None:
+                #fire
+                if queue is not None and queue.count == 0:
+                    #heroku_app.processes['worker'].scale(0)
+                    cloud._http_resource(
+                            method='POST',
+                            resource=('apps', 'sudokusolver', 'ps', 'scale'),
+                            data={'type': 'worker', 'qty': 0})
             return ctx
         return decorated
     return decorator
@@ -207,15 +211,48 @@ def params():
         "AWSAccessKeyId" : flask_app.config['AWS_SEEDOKU_WRITE_KEY']
         })
 
+
 def numpy_image_from_stringio(img_stream, cv2_img_flag=0):
     img_stream.seek(0)
     img_array = np.asarray(bytearray(img_stream.read()), dtype=np.uint8)
     return cv2.imdecode(img_array, cv2_img_flag)
 
+def rotate_image(image, orientation=None):
+    """
+    apply rotation based on orientation tag
+    """
+    # apply orientation if any
+    if orientation is not None:
+        print orientation
+        rot = {'Horizontal (normal)' : 0, 'Rotated 180' : 2, 'Rotated 90 CCW' : 3, 'Rotated 90 CW' : 1}
+        if orientation.printable in rot:
+            return np.rot90(image, rot[orientation.printable])
+        elif orientation.printable == 'Mirrored horizontal':
+            return np.fliplr(image)
+        elif orientation.printable == 'Mirrored vertical':
+            return np.flipud(image)
+        elif orientation.printable == 'Mirrored horizontal then rotated 90 CCW':
+            return np.rot90(np.fliplr(image), 1)
+        elif orientation.printable == 'Mirrored horizontal then rotated 90 CW':
+            return np.rot90(np.fliplr(image), 3)
+    return image
+
+
 def numpy_image_from_url(url, cv2_img_flag=0):
     request = urlopen(url)
-    img_array = np.asarray(bytearray(request.read()), dtype=np.uint8)
-    return cv2.imdecode(img_array, cv2_img_flag)
+    imbytes = io.BytesIO(request.read())
+
+    # get orientation and rewind
+    tags = exifread.process_file(imbytes, stop_tag='Orientation')
+    orientation = tags.get('Image Orientation')
+    imbytes.seek(0)
+
+    # convert to numpy image array
+    img_array = np.asarray(bytearray(imbytes.read()), dtype=np.uint8)
+    image = cv2.imdecode(img_array, cv2_img_flag) 
+    
+    # return rotated image
+    return rotate_image(image, orientation)
 
 def generate_temp_s3_url_from_key(key):
     s3conn = S3Connection(flask_app.config['AWS_SEEDOKU_WRITE_KEY'], flask_app.config['AWS_SEEDOKU_WRITE_SECRET'])

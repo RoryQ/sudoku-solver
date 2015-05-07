@@ -21,3 +21,4 @@ wsgiref==0.1.2
 numpy
 scipy
 boto==2.38.0
+ExifRead==2.0.2

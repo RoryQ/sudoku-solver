@@ -58,8 +58,13 @@ class Seedoku(object):
             if reduce(lambda x, y: x*y, elem_img.shape) < 500:
                 puzzle[elem_id] = "0"
                 continue
+            
             elem_img = pm.binary(elem_img).astype("float32")
             elem_img = self._MNIST_preprocess(elem_img)
+            if elem_img is None:
+                puzzle[elem_id] = "0"
+                continue
+
             features = self.feature_alg.get_features(elem_img)
             guess = self.ocr_alg.predict(features)
             puzzle[elem_id] = str(guess[0])
@@ -181,15 +186,30 @@ class Seedoku(object):
         Scales image down to 20 x 20 then centered in a 28 x 28 grid
         based on the centre of mass of input image
         """
+
         # get ratio to scale image down to 20x20
         ratio = min(20./img.shape[0], 20./img.shape[1])
         scaleshape = (img.shape[0] * ratio, img.shape[1] * ratio)
         norm = mh.resize.resize_to(img, scaleshape)
     
+
         # position center of mass of image in a 28x28 field
         dest = np.zeros((28, 28))
         COM = mh.center_of_mass(norm)
+        print COM
         (x, y) = (13.5, 13.5) - COM
         (x, y) = (int(round(x)), int(round(y)))
-        dest[x:x + norm.shape[0], y:y + norm.shape[1]] = norm
+        try:
+            dest[x:x + norm.shape[0], y:y + norm.shape[1]] = norm
+        except ValueError:
+            dest = None
         return dest
+
+    debugseed = 1
+
+    def debug_image(self, img, stop=None):
+        self.debugseed += 1
+        print self.debugseed
+        if self.debugseed == stop:
+            #print img.dtype
+            mh.imsave('debug{0}.jpg'.format(stop), img)

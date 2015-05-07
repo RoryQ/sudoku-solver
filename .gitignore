@@ -3,6 +3,7 @@ flask
 tags
 .env
 .ropeproject
+.ipynb_checkpoints
 .idea
 *.py~
 *.pyc

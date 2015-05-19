@@ -18,7 +18,7 @@
       });
       form = $("#upload_form");
 
-      function getSolution(data){
+      function sendAWSKeyToServer(data){
         var keyval = $(data).find('Key').text()
         return $.ajax({url:"{{ url_for('upload_to_s3') }}",
             type: 'POST',
@@ -30,6 +30,26 @@
       function updateProgressBar(percentage){
         $("#progress_bar").text(percentage);
         $("#progress_bar").css("width", percentage);
+      }
+
+      function waitOnPuzzleProcessing(data){
+        $(function pollServerForSolution(){
+          $.ajax({
+            type: 'POST',
+            url: "{{ url_for('processing') }}",
+            data: JSON.stringify({ task_id: data.task_id}),
+            success: function(response) {
+              if (response.status == 'SUCCESS'){
+                successGetSolution(response.render);
+              } else if (response.status == 'STARTED' || response.status == 'PENDING'){
+                setTimeout(pollServerForSolution, 3000);
+              } else {
+                displayFailure(e, d)
+              }
+            },
+            fail: displayFailure,
+            contentType: "application/json" });
+        }());
       }
 
       function successGetSolution(render) {
@@ -50,7 +70,7 @@
         //console.log(event);
         return $.ajax({
           type: 'POST',
-          url: "{{ url_for('params') }}",
+          url: "{{ url_for('s3_config_params') }}",
           data: JSON.stringify({ filename: data.files[0].name, type: data.files[0].type }),
           success: function(params) {
             form.find('input[name=key]').val(params.key);
@@ -76,7 +96,7 @@
         fail: displayFailure,
         success: function(data) {
           console.log("upload to s3 success");
-          getSolution(data).done(successGetSolution).fail(displayFailure);
+          sendAWSKeyToServer(data).done(waitOnPuzzleProcessing).fail(displayFailure);
         }
       });
   });

@@ -4,7 +4,7 @@ from contours import Contour
 import pymorph as pm
 import mahotas as mh
 from mytinyocr.feature.resize import Resize
-import cPickle, io
+
 
 class Seedoku(object):
     """

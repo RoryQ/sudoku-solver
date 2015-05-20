@@ -1,6 +1,5 @@
 #!flask/bin/python
 from flask import Flask, abort, jsonify, make_response, render_template, url_for, request
-from forms import SodokuGrid
 from sudoku import Sudoku
 from jinja2 import evalcontextfilter, Markup, escape
 import os

@@ -88,4 +88,4 @@ class SeedokuTask():
         img_url = self.generate_temp_s3_url_from_key(key)
         img = self.numpy_image_from_url(img_url, cv2.IMREAD_GRAYSCALE)
         ocrd_puzzle = self.seedoku.image_to_puzzle(img)
-        return img, ocrd_puzzle
+        return img_url, ocrd_puzzle

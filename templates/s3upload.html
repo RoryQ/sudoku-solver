@@ -33,18 +33,23 @@
       }
 
       function waitOnPuzzleProcessing(data){
+        maxRetries = 10;
+        retryCount = 0;
         $(function pollServerForSolution(){
           $.ajax({
+            statusCode: { 500: displayFailure},
             type: 'POST',
             url: "{{ url_for('processing') }}",
             data: JSON.stringify({ task_id: data.task_id}),
             success: function(response) {
+              retryCount += 1;
               if (response.status == 'SUCCESS'){
                 successGetSolution(response.render);
-              } else if (response.status == 'STARTED' || response.status == 'PENDING'){
+              } else if (retryCount < maxRetries 
+                && (response.status == 'STARTED' || response.status == 'PENDING')){
                 setTimeout(pollServerForSolution, 3000);
               } else {
-                displayFailure(e, d)
+                displayFailure(null, null)
               }
             },
             fail: displayFailure,
@@ -63,7 +68,7 @@
 
       function displayFailure(event, data) {
         console.log(event);
-        $(".alert-fail").removeClass('hidden');
+        $(".alert-failure").removeClass('hidden');
       }
 
       function fileUploadFormAdd(event, data) {

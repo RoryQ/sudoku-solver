@@ -27,8 +27,8 @@
           });
       }
 
-      function updateProgressBar(percentage){
-        $("#progress_bar").text(percentage);
+      function updateProgressBar(text, percentage){
+        $("#progress_bar").text(text);
         $("#progress_bar").css("width", percentage);
       }
 
@@ -58,7 +58,7 @@
       }
 
       function successGetSolution(render) {
-        updateProgressBar("100%")
+        updateProgressBar("Done!", "100%")
         setTimeout(function(){
         $("#puzzle_render").html(render);
         $("#progress_container").hide();
@@ -68,6 +68,7 @@
 
       function displayFailure(event, data) {
         console.log(event);
+        $("#progress_container").hide(); 
         $(".alert-failure").removeClass('hidden');
       }
 
@@ -95,12 +96,14 @@
         dataType: "xml",
         add: fileUploadFormAdd,
         progress: function(event, data) {
-          var percentage = Math.floor((event.loaded / event.total * 80)) + "%";
-          updateProgressBar(percentage);
+          var percentage = Math.floor((event.loaded / event.total * 100)) + "%";
+          updateProgressBar("Uploading - "+ percentage, percentage);
         },
         fail: displayFailure,
         success: function(data) {
           console.log("upload to s3 success");
+          $('#progress_container').text("Processing...")
+          $('#progress_container').addClass('progress-bar progress-bar-striped active')
           sendAWSKeyToServer(data).done(waitOnPuzzleProcessing).fail(displayFailure);
         }
       });
@@ -132,10 +135,8 @@
             <button id="upload_button" class="btn-primary btn-lg">Upload</button>
           </div>
 
-
           <div id="progress_container" class="progress hidden">
-            <div id="progress_bar" class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
-
+            <div id="progress_bar" class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
             </div>
           </div>
 

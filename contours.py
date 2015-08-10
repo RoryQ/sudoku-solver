@@ -79,6 +79,7 @@ class Contour(object):
         return numpy.sqrt(4 * self.moments['m00'] / numpy.pi)
 
     def draw_stuff(self, img):
+        """
         cv2.drawContours(img, [self.cnt], 0, (0,255,0), 4)
         cv2.drawContours(img, [self.approx], 0, (255,0,0), 2)
         cv2.drawContours(img, [self.hull], 0, (0,0,255), 2)
@@ -91,6 +92,8 @@ class Contour(object):
         cv2.putText(img, message,(20,60), cv2.FONT_HERSHEY_PLAIN, 1.0, (0,0,255))
         message = 'yellow : bounding box'
         cv2.putText(img, message,(20,80), cv2.FONT_HERSHEY_PLAIN, 1.0, (0,255,255))
+        """
+        cv2.circle(img, (int(self.centroid[0]), int(self.centroid[1])), 1, (0, 0, 0), -1)
 
 def rectangular_coordinates(bottom_left, width, height):
     (x, y), w, h = bottom_left, width, height

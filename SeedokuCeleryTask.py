@@ -8,23 +8,17 @@ from util import fast_unpickle_gzip, get_image_orientation, rotate_image
 
 
 class SeedokuTask():
-    ocr = None
     seedoku = None
     config = {}
 
-    def __init__(self, config, ocr_path):
-        self.ocr = fast_unpickle_gzip(ocr_path)
-        self.ocr._update_rq = False
-        print 'ocr loaded'
-
-        self.seedoku = Seedoku(self.ocr)
-        self.seedoku.Debug = True
-        print 'seedoku created'
-
+    def __init__(self, config):
         keys = (key for key in config if key.startswith('AWS_SEEDOKU') is True)
         for key in keys:
             self.config[key] = config[key]
         print 'config loaded'
+
+        self.seedoku = Seedoku(config['TESSERACT_LANG'], config['TESSERACT_LIBPATH'], config['TESSERACT_TESSDATA'])
+        print 'seedoku created'
 
     def numpy_image_from_stringio(self, img_stream, cv2_img_flag=0):
         img_stream.seek(0)

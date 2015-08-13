@@ -26,14 +26,15 @@ flask_app.debug = os.getenv('DEBUG') == "True"
 for key in ('AWS_SEEDOKU_WRITE_KEY', 'AWS_SEEDOKU_WRITE_SECRET',
             'AWS_S3_BUCKET_URL', 'AWS_SEEDOKU_READ_KEY',
             'AWS_SEEDOKU_READ_SECRET', 'AWS_SEEDOKU_S3_BUCKET',
-            'CELERY_BROKER_URL', 'CELERY_RESULT_BACKEND'):
+            'CELERY_BROKER_URL', 'CELERY_RESULT_BACKEND',
+            'TESSERACT_LANG', 'TESSERACT_LIBPATH', 'TESSERACT_TESSDATA'):
     flask_app.config[key] = environ[key]
 
 celery_app = make_celery(flask_app)
 
 su = Sudoku()
 
-seedoku = SeedokuTask(flask_app.config, 'SVM.p.gz')
+seedoku = SeedokuTask(flask_app.config)
 
 
 @celery_app.task(name="tasks.async_image_to_puzzle")
